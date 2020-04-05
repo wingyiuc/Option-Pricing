@@ -1,5 +1,5 @@
 # Option-Pricing
-## project_pricing_multiple
+## project_pricing_multiple.R
 ### Code for pricing multiple stocks
 How to use: drop the historical price rds files into "Price_data" folder
 
@@ -11,7 +11,7 @@ drop the downloaded excel files into "Price_data" folder
 
 uncomment and run the "Save excel as rds" section
 
-## project_pricing
+## project_pricing.R
 Takes only two stocks with specified file name
 
 For debugging only
