@@ -21,7 +21,7 @@ dataDir = paste(mainDir , "Price_data/", sep="")
 # Global Variables
 
 annual = 252
-d = 10000000
+d = 1*10^6
 T <- 1                   # time until expiration (in years)
 r = 1.950/100
 ### Addition
@@ -157,10 +157,10 @@ price.DIP <- function(s0, K, L, sigma, r) {
 
 #######################################
 # read rds files
-# files = list.files(dataDir,pattern = ".rds")
-# file = files[2]
-# data.df = readRDS(paste(dataDir,file,sep=""))
-data.df = readRDS(paste(dataDir,"Equities_700.rds",sep=""))
+files = list.files(dataDir,pattern = ".rds")
+file = files[3]
+data.df = readRDS(paste(dataDir,file,sep=""))
+# data.df = readRDS(paste(dataDir,"Equities_8083.rds",sep=""))
 
 # Preprocess the raw table
 # Compute the return from closed price
@@ -174,16 +174,33 @@ K = s0 # at-the-money option
 
 
 
-L = 400
-print(cat("Vanilla Call Price Estimate:",price.UIC(s0, K, 0, sigma, r), "\n"))
-print(cat("Up-and-In Call Price Estimate:",price.UIC(s0, K, L, sigma, r), "\n"))
-print(cat("Up-and-Out Put Price Estimate:",price.UOP(s0, K, L, sigma, r), "\n"))
+L = K*(1+30/100)
+vanilla.call = price.UIC(s0, K, 0, sigma, r)
+UIC = price.UIC(s0, K, L, sigma, r)
+UOP = price.UOP(s0, K, L, sigma, r)
+print(paste("Vanilla Call Price Estimate:",vanilla.call))
+print(paste("Up-and-In Call Price Estimate:",UIC))
+print(paste("Up-and-Out Put Price Estimate:",UOP))
 
 
 
-L = 352.8
-print(cat("Vanilla Put Price Estimate:",price.DIP(s0, K, 1000, sigma, r), "\n"))
-print(cat("Down-and-Out Call Price Estimate:",price.DOC(s0, K, L, sigma, r), "\n"))
-print(cat("Down-and-In Put Price Estimate:",price.DIP(s0, K, L, sigma, r), "\n"))
+L = K*(1-30/100)
+vanilla.put = price.DIP(s0, K, 1000, sigma, r)
+DOC = price.DOC(s0, K, L, sigma, r)
+DIP = price.DIP(s0, K, L, sigma, r)
+print(paste("Vanilla Put Price Estimate:",vanilla.put))
+print(paste("Down-and-Out Call Price Estimate:",DOC))
+print(paste("Down-and-In Put Price Estimate:",DIP))
 
-
+#######################################
+## Calculating participation rate
+I = 1000000
+r.corporate = 1.95/100
+B = exp(-r.corporate*T)*I
+print(paste("remaining amount to invest:",I-B))
+total.option.price = DOC + UOP
+print(paste("total option price is", total.option.price))
+P.rate = (I-B)/(I*total.option.price)*100 # percent
+print(paste("participation rate is: ", P.rate, "%"))
+P = P.rate * I
+print(paste("participation is: ", P))
