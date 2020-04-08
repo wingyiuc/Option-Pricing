@@ -58,8 +58,8 @@ get_payoff_table = function(df,s0, K, L, sigma, r, T, type_basic,type_adjust){
   df[, payoff.put := exp(-r*T)*pmax(K-s.t,0)]
   df[, payoff.call.barrier := exp(-r*T)*pmax(s.t.barrier-K,0)]
   df[, payoff.call.barrier.adj := exp(-r*T)*pmax(adj.s.t.barrier-K,0)]
-  df[, payoff.put.barrier := exp(-r*T)*pmax(K-s.t.barrier,0)]
-  df[, payoff.put.barrier.adj := exp(-r*T)*pmax(K-adj.s.t.barrier,0)]
+  df[, payoff.put.barrier := ifelse(s.t.barrier==0,0,exp(-r*T)*pmax(K-s.t.barrier,0))]
+  df[, payoff.put.barrier.adj := ifelse(adj.s.t.barrier==0,0,exp(-r*T)*pmax(K-adj.s.t.barrier,0))]
   return(df)
 }
 
@@ -185,6 +185,5 @@ L = 352.8
 print(cat("Vanilla Put Price Estimate:",price.DIP(s0, K, 1000, sigma, r), "\n"))
 print(cat("Down-and-Out Call Price Estimate:",price.DOC(s0, K, L, sigma, r), "\n"))
 print(cat("Down-and-In Put Price Estimate:",price.DIP(s0, K, L, sigma, r), "\n"))
-
 
 
