@@ -1,0 +1,190 @@
+library(data.table)
+# library(readxl)
+library(stringr)
+#####
+mainDir = "E:/Yoyo Chan/Documents/FINA4354 Financial engineering/Group project/"
+setwd(mainDir)
+dataDir = paste(mainDir , "Price_data/", sep="")
+#####
+
+#######################################
+# Save excel as rds
+# 
+# files = list.files(dataDir,pattern = ".xlsx")
+# for (file in files) {
+#   df = read_excel(paste(dataDir,file,sep=""))
+#   filename = strsplit(file,".xlsx")[1]
+#   saveRDS(df, paste(dataDir,filename,".rds",sep="") )
+# }
+
+#######################################
+# Global Variables
+
+annual = 252
+d = 10000000
+T <- 1                   # time until expiration (in years)
+r = 1.950/100
+### Addition
+# L <- 400
+### End
+#######################################
+# Functions
+preprocess.df = function(df){
+  
+  # Input: dataframe from rds files
+  # Output: datatable with date, Closed_Price and ret (return)
+  
+  setDT(df)
+  names(df) = str_replace_all(names(df)," ","_")
+  df = df[,list(date=Time,Closed_Price=as.numeric(Closed_Price)),]
+  df = df[,ret:= log(Closed_Price)-log(shift(Closed_Price,type="lag",n=1)),]
+  df = na.omit(df)
+  return(df)
+}
+
+### Addition in Function
+get_payoff_table = function(df,s0, K, L, sigma, r, T, type_basic,type_adjust){
+  
+  # input: df with one column of Wiener processes
+  # Output: df with Wiener processes, simulated returns, simulated stock prices
+  # mean returns and discounted payoff
+  
+  df[, r.t := (r-(1/2)*sigma^2)*T+sigma*dW]
+  df[, s.t := s0*exp(r.t)]
+  df[, adj.s.t := L^2/s.t]
+  df[, s.t.barrier := phi(s.t, L, type=type_basic)] 
+  df[, adj.s.t.barrier := phi(adj.s.t, L, type=type_adjust)]
+  df[, payoff.call := exp(-r*T)*pmax(s.t-K,0)]
+  df[, payoff.put := exp(-r*T)*pmax(K-s.t,0)]
+  df[, payoff.call.barrier := exp(-r*T)*pmax(s.t.barrier-K,0)]
+  df[, payoff.call.barrier.adj := exp(-r*T)*pmax(adj.s.t.barrier-K,0)]
+  df[, payoff.put.barrier := exp(-r*T)*pmax(K-s.t.barrier,0)]
+  df[, payoff.put.barrier.adj := exp(-r*T)*pmax(K-adj.s.t.barrier,0)]
+  return(df)
+}
+
+phi = function(S,L,type){
+  # Input: S, L, type
+  # Output: L chopped off claim
+  if(type == 1){
+    return(ifelse(S<L, S, 0)) 
+  }
+  else{
+    return(ifelse(S>L, S, 0)) 
+  }
+}
+
+get_price = function(df, call=TRUE, vanilla=TRUE ,basic=TRUE){
+  if (call==TRUE) {
+    if (vanilla == TRUE) {
+      option.price = round(mean(df$payoff.call), 4)
+    }
+    else{
+      if (basic==TRUE) {
+        option.price = round(mean(df$payoff.call.barrier), 4)
+      }
+      else{
+        option.price = round(mean(df$payoff.call.barrier.adj), 4)
+      }
+    }
+  }
+  else{ # Put
+    if (vanilla == TRUE) {
+      option.price = round(mean(df$payoff.put), 4)
+    }
+    else{
+      if (basic==TRUE) {
+        option.price = round(mean(df$payoff.put.barrier), 4)
+      }
+      else{
+        option.price = round(mean(df$payoff.put.barrier.adj), 4)
+      }
+    }
+  }
+  return(option.price)
+}
+price.DOC <- function(s0, K, L, sigma, r) {
+  # Pricing Down-and-Out Call
+  if ( s0 <= L) return(0)
+  df = data.table(sqrt(T)*rnorm(d))
+  df = df[, list(dW=V1)]
+  df = get_payoff_table(df,s0, K, L, sigma, r, T, type_basic=2,type_adjust=2)
+  adjustment.factor <- (L / s0)^(2 * (r - (1/2) * sigma^2) / sigma^2)
+  price.basic <- get_price(df, call=TRUE, vanilla=FALSE, basic=TRUE)
+  price.adjusted <- get_price(df, call=TRUE, vanilla=FALSE, basic=FALSE)
+  return(price.basic - adjustment.factor * price.adjusted)
+}
+
+price.UIC <- function(s0, K, L, sigma, r) {
+  # Input: df, s0, K, L, sigma, r, T
+  # Output: price of Up-and-In call
+  df = data.table(sqrt(T)*rnorm(d))
+  df = df[, list(dW=V1)]
+  df = get_payoff_table(df,s0, K, L, sigma, r, T, type_basic=2,type_adjust=1)
+  if ( s0 >= L) return(get_price(df, call=TRUE, vanilla=TRUE)) # Get rid of easy case.
+  adjustment.factor <- (L / s0)^(2 * (r - (1/2) * sigma^2) / sigma^2)
+  price.basic <- get_price(df, call=TRUE, vanilla=FALSE, basic=TRUE)
+  price.adjusted <- get_price(df, call=TRUE, vanilla=FALSE, basic=FALSE)
+  return(price.basic + adjustment.factor * price.adjusted)
+}
+
+price.UOP <- function(s0, K, L, sigma, r) {
+  # Input: df, s0, K, L, sigma, r, T
+  # Output: price of Up-and-Out Put
+  if ( s0 >= L) return(0)
+  df = data.table(sqrt(T)*rnorm(d))
+  df = df[, list(dW=V1)]
+  df = get_payoff_table(df,s0, K, L, sigma, r, T, type_basic=1,type_adjust=1)
+  adjustment.factor <- (L / s0)^(2 * (r - (1/2) * sigma^2) / sigma^2)
+  price.basic <- get_price(df, call=FALSE, vanilla=FALSE, basic=TRUE)
+  price.adjusted <- get_price(df, call=FALSE, vanilla=FALSE, basic=FALSE)
+  return(price.basic - adjustment.factor * price.adjusted)
+}
+
+price.DIP <- function(s0, K, L, sigma, r) {
+  # Input: df, s0, K, L, sigma, r, T
+  # Output: price of Down-and-In Put
+  df = data.table(sqrt(T)*rnorm(d))
+  df = df[, list(dW=V1)]
+  df = get_payoff_table(df,s0, K, L, sigma, r, T, type_basic=1,type_adjust=2)
+  if ( s0 <= L) return(get_price(df, call=FALSE, vanilla=TRUE))
+  adjustment.factor <- (L / s0)^(2 * (r - (1/2) * sigma^2) / sigma^2)
+  price.basic <- get_price(df, call=FALSE, vanilla=FALSE, basic=TRUE)
+  price.adjusted <- get_price(df, call=FALSE, vanilla=FALSE, basic=FALSE)
+  return(price.basic + adjustment.factor * price.adjusted)
+}
+### End
+
+#######################################
+# read rds files
+# files = list.files(dataDir,pattern = ".rds")
+# file = files[2]
+# data.df = readRDS(paste(dataDir,file,sep=""))
+data.df = readRDS(paste(dataDir,"Equities_700.rds",sep=""))
+
+# Preprocess the raw table
+# Compute the return from closed price
+data.df = preprocess.df(data.df)
+
+# Get annualized volatility, last price and strike price
+sigma <- sd(data.df$ret) / sqrt(1/annual)   # Annualized vola.(standard deviation)
+s0 = last(data.df$Closed_Price)
+K = s0 # at-the-money option
+# K = 376.4
+
+
+
+L = 400
+print(cat("Vanilla Call Price Estimate:",price.UIC(s0, K, 0, sigma, r), "\n"))
+print(cat("Up-and-In Call Price Estimate:",price.UIC(s0, K, L, sigma, r), "\n"))
+print(cat("Up-and-Out Put Price Estimate:",price.UOP(s0, K, L, sigma, r), "\n"))
+
+
+
+L = 352.8
+print(cat("Vanilla Put Price Estimate:",price.DIP(s0, K, 1000, sigma, r), "\n"))
+print(cat("Down-and-Out Call Price Estimate:",price.DOC(s0, K, L, sigma, r), "\n"))
+print(cat("Down-and-In Put Price Estimate:",price.DIP(s0, K, L, sigma, r), "\n"))
+
+
+
