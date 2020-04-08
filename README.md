@@ -1,4 +1,6 @@
 # Option-Pricing
+## project_pricing_single_barrier.R
+Pricing for single stock options with barrier
 ## project_pricing_multiple.R
 ### Code for pricing multiple stocks
 How to use: drop the historical price rds files into "Price_data" folder
