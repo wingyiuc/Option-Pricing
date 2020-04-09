@@ -10,6 +10,9 @@
 library(data.table)
 library(readxl)
 library(stringr)
+library(doParallel)
+library(doRNG)
+registerDoParallel(cores=detectCores())
 #####
 # Directory setup
 mainDir = "E:/Yoyo Chan/Documents/FINA4354 Financial engineering/Group project/"
@@ -131,3 +134,49 @@ cat("Call Price Estimate:",call.price, "\n")
 cat("Put Price Estimate:",put.price, "\n")
 cat("Standard Error:", round(sd(df.wt$discounted.payoff.call) / sqrt(d), 4), "\n")
 cat("Standard Error:", round(sd(df.wt$discounted.payoff.put) / sqrt(d), 4), "\n")
+
+##################################################
+theta <- sd      # Long-run mean.
+kappa <- 0.5               # Speed of mean reversion.
+xi <- 0.5                # Vol of vol.
+
+nu <- s <- matrix(0, nrow=m+1,ncol=num.files) # Initialize vol and stock price.
+
+nu[1,] <- theta
+s[1, ] <- last.price
+
+f <- rep(0, d)           # Initialize discounted payoff.
+
+system.time({
+out <- foreach(j=1:d, .combine = c) %dopar% {
+  dW1 <- matrix(sqrt(delta.t) * rnorm(num.files*m),nrow=m,ncol = num.files)
+  dW2 <- matrix(sqrt(delta.t) * rnorm(num.files*m),nrow=m,ncol = num.files)
+  for (i in 1:m) { # cycle through time
+    for (k in 1:num.files) {
+      ds <- r*s[i,k]*delta.t + sqrt(nu[i,k])*s[i,k]*dW1[k]
+      dnu <- kappa*(theta[k]-nu[i,k])*delta.t + xi*sqrt(nu[i,k])*dW2[k]
+      s[i + 1,k] <- s[i,k] + ds
+      nu[i + 1,k] <- max(nu[i,k] + dnu, 0) # Ensure non-negative 'nu'.
+    }
+  }
+  exp(-r * T) * max(mean(s[m+1,]) - K, 0)
+}
+})
+print(paste("Basket Option Price Estimate:",round(mean(out),4)))
+
+
+f <- rep(0, 10) 
+for (j in 1:10) {
+  dW1 <- matrix(sqrt(delta.t) * rnorm(num.files*m),nrow=m,ncol = num.files)
+  dW2 <- matrix(sqrt(delta.t) * rnorm(num.files*m),nrow=m,ncol = num.files)
+  for (i in 1:m) { # cycle through time
+    for (k in 1:num.files) {
+      ds <- r*s[i,k]*delta.t + sqrt(nu[i,k])*s[i,k]*dW1[k]
+      dnu <- kappa*(theta[k]-nu[i,k])*delta.t + xi*sqrt(nu[i,k])*dW2[k]
+      s[i + 1,k] <- s[i,k] + ds
+      nu[i + 1,k] <- max(nu[i,k] + dnu, 0) # Ensure non-negative 'nu'.
+    }
+  }
+  # f[j] = exp(-r * T) * max(mean(s[m+1,]) - K, 0)
+  f[j] = list(s)
+}
