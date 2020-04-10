@@ -153,8 +153,8 @@ out <- foreach(j=1:d, .combine = c) %dopar% {
   dW2 <- matrix(sqrt(delta.t) * rnorm(num.files*m),nrow=m,ncol = num.files)
   for (i in 1:m) { # cycle through time
     for (k in 1:num.files) {
-      ds <- r*s[i,k]*delta.t + sqrt(nu[i,k])*s[i,k]*dW1[k]
-      dnu <- kappa*(theta[k]-nu[i,k])*delta.t + xi*sqrt(nu[i,k])*dW2[k]
+      ds <- r*s[i,k]*delta.t + sqrt(nu[i,k])*s[i,k]*dW1[i,k]
+      dnu <- kappa*(theta[k]-nu[i,k])*delta.t + xi*sqrt(nu[i,k])*dW2[i,k]
       s[i + 1,k] <- s[i,k] + ds
       nu[i + 1,k] <- max(nu[i,k] + dnu, 0) # Ensure non-negative 'nu'.
     }
@@ -163,20 +163,3 @@ out <- foreach(j=1:d, .combine = c) %dopar% {
 }
 })
 print(paste("Basket Option Price Estimate:",round(mean(out),4)))
-
-
-f <- rep(0, 10) 
-for (j in 1:10) {
-  dW1 <- matrix(sqrt(delta.t) * rnorm(num.files*m),nrow=m,ncol = num.files)
-  dW2 <- matrix(sqrt(delta.t) * rnorm(num.files*m),nrow=m,ncol = num.files)
-  for (i in 1:m) { # cycle through time
-    for (k in 1:num.files) {
-      ds <- r*s[i,k]*delta.t + sqrt(nu[i,k])*s[i,k]*dW1[k]
-      dnu <- kappa*(theta[k]-nu[i,k])*delta.t + xi*sqrt(nu[i,k])*dW2[k]
-      s[i + 1,k] <- s[i,k] + ds
-      nu[i + 1,k] <- max(nu[i,k] + dnu, 0) # Ensure non-negative 'nu'.
-    }
-  }
-  # f[j] = exp(-r * T) * max(mean(s[m+1,]) - K, 0)
-  f[j] = list(s)
-}
