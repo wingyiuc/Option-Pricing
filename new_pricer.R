@@ -177,7 +177,7 @@ if (L < mean(last.price)){
   down_in = TRUE
 }
 system.time({
-  out <- foreach(j=1:d, .combine = "rbind") %dopar% {
+  out <- foreach(j=1:d, .combine = "rbind") %dorng% {
     dW1 <- matrix(sqrt(delta.t) * rnorm(num.files*m),nrow=m,ncol = num.files)
     dW2 <- matrix(sqrt(delta.t) * rnorm(num.files*m),nrow=m,ncol = num.files)
     for (i in 1:m) { # cycle through time
