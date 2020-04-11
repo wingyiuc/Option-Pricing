@@ -34,7 +34,7 @@ dataDir = paste(mainDir , "Price_data/", sep="")
 ### Global Variables
 
 annual = 252
-d = 100000
+d = 1000
 T <- 1                   # time until expiration (in years)
 m <- T * 252             # number of subintervals
 delta.t <- T / m         # time per subinterval (in years)
@@ -164,17 +164,18 @@ f <- rep(0, d)           # Initialize discounted payoff.
 # print(paste("Basket Option Price Estimate:",round(mean(out),4)))
 
 ### tester
-L = 0.75*K
-if (L < mean(last.price)){
-  up_out = FALSE
-  down_out = TRUE
-  up_in = TRUE
-  down_in = FALSE
+print(K)
+L.call = 2.0*K
+L.put = 0.50*K
+if (L.put < mean(last.price)){
+  down_in.put.active = FALSE
 }else{
-  up_out = TRUE
-  down_out = FALSE
-  up_in = FALSE
-  down_in = TRUE
+  down_in.put.active = TRUE
+}
+if (L.call < mean(last.price)){
+  up_in.call.active = TRUE
+}else{
+  up_in.call.active = FALSE
 }
 system.time({
   out <- foreach(j=1:d, .combine = "rbind") %dorng% {
@@ -187,40 +188,28 @@ system.time({
         s[i + 1,k] <- s[i,k] + ds
         nu[i + 1,k] <- max(nu[i,k] + dnu, 0) # Ensure non-negative 'nu'.
       }
-      if(mean(s[i+1,]) < L){
-        if(down_out == TRUE){
-          down_out = FALSE
-        }
-        if(down_in == FALSE){
-          down_in = TRUE
-        }
-      }else if(mean(s[i+1,]) > L){
-        if(up_out == TRUE){
-          up_out = FALSE
-        }
-        if(up_in == FALSE){
-          up_in = TRUE
+      if(mean(s[i+1,]) < L.put){
+        if(down_in.put.active == FALSE){
+          down_in.put.active = TRUE
         }
       }
+      if(mean(s[i+1,]) > L.call){
+        if(up_in.call.active == FALSE){
+          up_in.call.active = TRUE
+        }
+      
+      }
     }
-    price1 <- price2 <- price3 <- price4 <- 0
-    if(down_out == TRUE){
+    price1 <- price2 <- 0
+    if(up_in.call.active == TRUE){
       price1 = exp(-r * T) * max(mean(s[m+1,]) - K, 0)
     }
-    if(up_out == TRUE){
-      price2 = exp(-r * T) * max(mean(s[m+1,]) - K, 0)
+    if(down_in.put.active == TRUE){
+      price2 = exp(-r * T) * max(K-mean(s[m+1,]), 0)
     }
-    if(down_in == TRUE){
-      price3 = exp(-r * T) * max(mean(s[m+1,]) - K, 0)
-    }
-    if(up_in == TRUE){
-      price4 = exp(-r * T) * max(mean(s[m+1,]) - K, 0)
-    }
-    list(price1,price2,price3,price4,exp(-r * T) * max(mean(s[m+1,]) - K, 0))
+    list(price1,price2,exp(-r * T) * max(mean(s[m+1,]) - K, 0))
   }
 })
-print(paste("Basket Option Price Estimate:",round(mean(unlist(out[,5])),4)))
-print(paste("Basket Option Price Estimate (Down-Out):",round(mean(unlist(out[,1])),4)))
-print(paste("Basket Option Price Estimate (Up-Out):",round(mean(unlist(out[,2])),4)))
-print(paste("Basket Option Price Estimate (Down-In):",round(mean(unlist(out[,3])),4)))
-print(paste("Basket Option Price Estimate (Up-In):",round(mean(unlist(out[,4])),4)))
+print(paste("Basket Option Price Estimate:",round(mean(unlist(out[,3])),4)))
+print(paste("Basket Option Price Estimate (Up-In Call):",round(mean(unlist(out[,1])),4)))
+print(paste("Basket Option Price Estimate (Down-In Put):",round(mean(unlist(out[,2])),4)))
