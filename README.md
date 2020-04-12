@@ -1,4 +1,7 @@
 # Option-Pricing
+## project_pricing_multiple_barrier.R (Most updated version)
+Pricing for barrier basket options (call)
+Fixed covariance problem
 ## project_pricing_single_barrier.R
 Pricing for single stock options with barrier
 ## project_pricing_multiple.R
