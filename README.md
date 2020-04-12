@@ -1,7 +1,9 @@
 # Option-Pricing
 ## project_pricing_multiple_barrier.R (Most updated version)
-Pricing for barrier basket options (call)
-Fixed covariance problem
+Final version for pricing basket barrier call and put
+## data preprocessing.R
+For converting download excel folder into rds with suitable timeframe
+
 ## project_pricing_single_barrier.R
 Pricing for single stock options with barrier
 ## project_pricing_multiple.R
