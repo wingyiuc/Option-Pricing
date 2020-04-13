@@ -34,11 +34,11 @@ T <- 1                    # time until expiration (in years)
 m <- T * 252              # number of subintervals
 delta.t <- T / m          # time per subinterval (in years)
 r = 1.950/100             # Risk free rate
-call.barrier.factor = 1.3 # Multiplier on strike price to calculate call barrier
-put.barrier.factor = 0.8  # Multiplier on strike price to calculate put barrier
-kappa <- 3                # Speed of mean reversion.
-xi <- 0.8                 # Vol of vol.
-set.seed(2)
+call.barrier.factor = 1.45 # Multiplier on strike price to calculate call barrier
+put.barrier.factor = 0.7  # Multiplier on strike price to calculate put barrier
+kappa <- 2                # Speed of mean reversion.
+xi <- 0.9                 # Vol of vol.
+set.seed(1)
 
 #######################################
 ### Functions
@@ -54,6 +54,24 @@ preprocess.df = function(df){
   df = na.omit(df)
   setkey(df,"date")
   return(df)
+}
+
+join_ret_table = function(df){
+  
+  # Input: list of dataframes (3D) of stock data (date, Closed_Price, ret)
+  # Output: Join return columns into one 2D dataframe
+  
+  df.ret = data.table(cbind(df[[1]]$date,df[[1]]$ret))
+  colnames(df.ret) = c("date","ret.1")
+  for (i in 2:num.files) {
+    df.temp = data.table(cbind(df[[i]]$date,df[[i]]$ret))
+    colnames(df.temp) = c("date",paste("ret.",i,sep=""))
+    df.ret = merge(df.ret,df.temp,by="date")
+  }
+  setkey(df.ret,date)
+  df.ret = df.ret[,!"date"]
+  df.ret = sapply(df.ret,as.numeric)
+  return(df.ret)
 }
 
 get_price = function(out, call=TRUE, barrier=TRUE){
@@ -85,7 +103,7 @@ get_price = function(out, call=TRUE, barrier=TRUE){
 }
 #######################################
 # Get all files from folder
-files = list.files(dataDir,pattern = ".rds")
+files = list.files(dataDir,pattern = "_pricing.rds")
 
 # Get number of underlyings
 num.files =length(files)
@@ -103,16 +121,7 @@ last.price = unlist(lapply(df,function(df)last(df$Closed_Price))) # last prices
 K <- mean(last.price)                                             # strike price
 
 # Join tables so that return columns have same length
-df.ret = data.table(cbind(df[[1]]$date,df[[1]]$ret))
-colnames(df.ret) = c("date","ret.1")
-for (i in 2:num.files) {
-  df.temp = data.table(cbind(df[[i]]$date,df[[i]]$ret))
-  colnames(df.temp) = c("date",paste("ret.",i,sep=""))
-  df.ret = merge(df.ret,df.temp,by="date")
-}
-setkey(df.ret,date)
-df.ret = df.ret[,!"date"]
-df.ret = sapply(df.ret,as.numeric)
+df.ret = join_ret_table(df)
 
 # Covariance matrix
 cov.matrix = cov(df.ret)*annual # Annualized volatility 
@@ -203,13 +212,16 @@ for (i in 1:m) { # cycle through time
     nu[i + 1,k] <- max(nu[i,k] + dnu, 0) # Ensure non-negative 'nu'.
   }
 }
-# plot
+# Basket simulation 
+s.m = rowMeans(s)
+plot(s.m, type = 'l')
+
+# Individual stocks simulation
 s.plt = data.frame(s)
 s.plt$id = seq.int(nrow(s.plt))
 df <- s.plt %>%
   select(colnames(s.plt)) %>%
   gather(key = "variable", value = "value", -id)
-# Visualization
 ggplot(df, aes(x = id, y = value)) + 
   geom_line(aes(color = variable, linetype = "l")) + 
   scale_color_manual(values = rep(1:num.files))
