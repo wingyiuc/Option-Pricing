@@ -1,24 +1,29 @@
-# Option-Pricing
-## project_pricing_multiple_barrier.R (Most updated version)
-Final version for pricing basket barrier call and put
-## data preprocessing.R
-For converting download excel folder into rds with suitable timeframe
+# Volatility Trading PGN Pricing Project
+This project contains the code for Volatility Trading PGN Pricing Project. It produces option prices for single/basket barrier options, and present the backtesting performance.
 
-## project_pricing_single_barrier.R
-Pricing for single stock options with barrier
-## project_pricing_multiple.R
-### Code for pricing multiple stocks
-How to use: drop the historical price rds files into "Price_data" folder
+## Getting Started
+The following instructions will get you a replication of the project results
 
-Run the code and get the basket option price
+### Prerequisites
+Required R packages are: `data.table`, `readxl`, `stringr`, `ggplot2`, `tidyverse`, `doParallel`, `doRNG`. 
 
-For new data download from HKEX website:
+### Getting basket barrier options prices
+Please go to `project_pricing_multiple_barrier.R` and run the code to get the option prices. Please change `mainDir` to your current directory. 
 
-drop the downloaded excel files into "Price_data" folder
+### Getting single underlying barrier options prices
+Please go to `roject_pricing_single_barrier.R` and run the code to get the option prices. Please change `mainDir` to your current directory. 
 
-uncomment and run the "Save excel as rds" section
+### Getting backtesting results
+Please go to `project_backtest_performance.R` and run the code to see backtesting results. Please change `mainDir` to your current directory. 
 
-## project_pricing.R
-Takes only two stocks with specified file name
+## Customizing results
+### Changing underlyings
+You may download historical daily data from the [HKEX website](https://www.hkex.com.hk/?sc_lang=en) and put into the `Price_data` directory. Then, use `data preprocessing.R` to generate rds files with for the pricing. The pricing programme can automatically read all files from the `Price_data` directory and give option prices in the basket. Please change `mainDir` to your current directory. 
+If you use data not downloaded from [HKEX website](https://www.hkex.com.hk/?sc_lang=en), you may add code on `data preprocessing.R` to generate rds files with `Time` and `Close price` columns, for the pricing programme to read automatically. 
 
-For debugging only
+### Changing model parameters 
+If you wish to change parameters for the Monte Carlo simulation, you may edit the section under `### Global variables` `***User edit area***`. You can change _number of trading days in a year_, _number of simulated trials_, _time until expiration_, _number of subinterval_, _time per subinterval_, _risk free rate_, _multiplier on strike for call barrier_, _multiplier on strike for put barrier_, _speed of mean reversion_, _volatility of volatility_.
+
+
+
+
