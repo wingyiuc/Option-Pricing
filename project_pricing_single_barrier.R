@@ -157,8 +157,8 @@ price.DIP <- function(s0, K, L, sigma, r) {
 
 #######################################
 # read rds files
-files = list.files(dataDir,pattern = ".rds")
-file = files[3]
+files = list.files(dataDir,pattern = "_pricing.rds")
+file = files[1]
 data.df = readRDS(paste(dataDir,file,sep=""))
 # data.df = readRDS(paste(dataDir,"Equities_8083.rds",sep=""))
 
@@ -174,7 +174,7 @@ K = s0 # at-the-money option
 
 
 
-L = K*(1+30/100)
+L = K*2.0
 vanilla.call = price.UIC(s0, K, 0, sigma, r)
 UIC = price.UIC(s0, K, L, sigma, r)
 UOP = price.UOP(s0, K, L, sigma, r)
@@ -192,15 +192,4 @@ print(paste("Vanilla Put Price Estimate:",vanilla.put))
 print(paste("Down-and-Out Call Price Estimate:",DOC))
 print(paste("Down-and-In Put Price Estimate:",DIP))
 
-#######################################
-## Calculating participation rate
-I = 1000000
-r.corporate = 1.95/100
-B = exp(-r.corporate*T)*I
-print(paste("remaining amount to invest:",I-B))
-total.option.price = DOC + UOP
-print(paste("total option price is", total.option.price))
-P.rate = (I-B)/(I*total.option.price)*100 # percent
-print(paste("participation rate is: ", P.rate, "%"))
-P = P.rate * I
-print(paste("participation is: ", P))
+
