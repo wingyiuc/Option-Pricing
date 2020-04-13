@@ -1,21 +1,28 @@
+#######################################
+### Code for single Barrier In-Options
+
+# How to use: drop the historical price rds files into "Price_data" folder
+# Adjust parameters in ***User edit area***
+# Run the code and get the single option price
+# For new data download from HKEX website:
+# Drop the downloaded excel files into "Price_data" folder
+# Run "data preprocessing.R" to get rds files with suitable timeframe 
+#######################################
+### Load packages
 library(data.table)
-# library(readxl)
+library(readxl)
 library(stringr)
-#####
+library(ggplot2)
+library(tidyverse)
+library(doParallel)
+library(doRNG)
+registerDoParallel(cores=detectCores())
+#######################################
+### Directory setup
+# ***User edit area***
 mainDir = "E:/Yoyo Chan/Documents/FINA4354 Financial engineering/Group project/"
 setwd(mainDir)
 dataDir = paste(mainDir , "Price_data/", sep="")
-#####
-
-#######################################
-# Save excel as rds
-# 
-# files = list.files(dataDir,pattern = ".xlsx")
-# for (file in files) {
-#   df = read_excel(paste(dataDir,file,sep=""))
-#   filename = strsplit(file,".xlsx")[1]
-#   saveRDS(df, paste(dataDir,filename,".rds",sep="") )
-# }
 
 #######################################
 # Global Variables
@@ -24,9 +31,8 @@ annual = 252
 d = 1*10^6
 T <- 1                   # time until expiration (in years)
 r = 1.950/100
-### Addition
-# L <- 400
-### End
+call.barrier.factor = 1.45 # Multiplier on strike price for call barrier
+put.barrier.factor = 0.7  # Multiplier on strike price for put barrier
 #######################################
 # Functions
 preprocess.df = function(df){
@@ -170,11 +176,8 @@ data.df = preprocess.df(data.df)
 sigma <- sd(data.df$ret) / sqrt(1/annual)   # Annualized vola.(standard deviation)
 s0 = last(data.df$Closed_Price)
 K = s0 # at-the-money option
-# K = 376.4
 
-
-
-L = K*2.0
+L = K*call.barrier.factor
 vanilla.call = price.UIC(s0, K, 0, sigma, r)
 UIC = price.UIC(s0, K, L, sigma, r)
 UOP = price.UOP(s0, K, L, sigma, r)
@@ -182,14 +185,10 @@ print(paste("Vanilla Call Price Estimate:",vanilla.call))
 print(paste("Up-and-In Call Price Estimate:",UIC))
 print(paste("Up-and-Out Put Price Estimate:",UOP))
 
-
-
-L = K*(1-30/100)
+L = K*put.barrier.factor
 vanilla.put = price.DIP(s0, K, 1000, sigma, r)
 DOC = price.DOC(s0, K, L, sigma, r)
 DIP = price.DIP(s0, K, L, sigma, r)
 print(paste("Vanilla Put Price Estimate:",vanilla.put))
 print(paste("Down-and-Out Call Price Estimate:",DOC))
 print(paste("Down-and-In Put Price Estimate:",DIP))
-
-
