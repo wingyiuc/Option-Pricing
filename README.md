@@ -9,9 +9,11 @@ Required R packages are: `data.table`, `readxl`, `stringr`, `ggplot2`, `tidyvers
 
 ### Getting basket barrier options prices
 Please go to `project_pricing_multiple_barrier.R` and run the code to get the option prices. Please change `mainDir` to your current directory. 
+The programme uses small-time-step Monte Carlo Simulation to generate simulated price paths, and Heston model to simulate changing volatility. To reduce the computation time, it uses parallel computing for the large simulations
 
 ### Getting single underlying barrier options prices
 Please go to `roject_pricing_single_barrier.R` and run the code to get the option prices. Please change `mainDir` to your current directory. 
+The programme uses Monte Carlo Simulation and a closed form pricing formula with contract functions. If you wish to price one underlying only, it is adviced to use this programme to reduce computation time. 
 
 ### Getting backtesting results
 Please go to `project_backtest_performance.R` and run the code to see backtesting results. Please change `mainDir` to your current directory. 
@@ -23,7 +25,3 @@ If you use data not downloaded from [HKEX website](https://www.hkex.com.hk/?sc_l
 
 ### Changing model parameters 
 If you wish to change parameters for the Monte Carlo simulation, you may edit the section under `### Global variables` `***User edit area***`. You can change _number of trading days in a year_, _number of simulated trials_, _time until expiration_, _number of subinterval_, _time per subinterval_, _risk free rate_, _multiplier on strike for call barrier_, _multiplier on strike for put barrier_, _speed of mean reversion_, _volatility of volatility_.
-
-
-
-
