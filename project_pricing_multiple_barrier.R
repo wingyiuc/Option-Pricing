@@ -1,11 +1,11 @@
 #######################################
 ### Code for Basket Barrier In-Options
 
-# How to use: drop the historical price rds files into "Price_data" folder
+# How to use: drop the historical price rds files into "data" folder
 # Adjust parameters in ***User edit area***
 # Run the code and get the basket option price
 # For new data download from HKEX website:
-# Drop the downloaded excel files into "Price_data" folder
+# Drop the downloaded excel files into "data" folder
 # Run "data preprocessing.R" to get rds files with suitable timeframe 
 #######################################
 ### Load packages
@@ -21,9 +21,9 @@ registerDoParallel(cores=detectCores())
 #######################################
 ### Directory setup
 # ***User edit area***
-mainDir = "E:/Yoyo Chan/Documents/FINA4354 Financial engineering/Group project/"
+mainDir = "C:/Users/kenneth.DESKTOP-DIPDF8F/Option-Pricing/"
 setwd(mainDir)
-dataDir = paste(mainDir , "Price_data/", sep="")
+dataDir = paste(mainDir , "data/", sep="")
 
 #######################################
 ### Global Variables
@@ -82,21 +82,34 @@ get_price = function(out, call=TRUE, barrier=TRUE){
   if (call==TRUE) {
     if (barrier == TRUE) {
       # Up-and-In Basket Call
+      
       option.price = round(mean(unlist(out[,1])),4)
+      stdev = sd(unlist(out[,1]))
+      print(paste('lower bound:',option.price - 1.96*stdev))
+      print(paste('upper bound:',option.price + 1.96*stdev))
     }
     else{ 
       # Basket call
       option.price = round(mean(unlist(out[,3])),4)
+      stdev = sd(unlist(out[,3]))
+      print(paste('lower bound:',option.price - 1.96*stdev))
+      print(paste('upper bound:',option.price + 1.96*stdev))
     }
   }
   else{
     if (barrier == TRUE) {
       # Down-and-in Basket Put
       option.price = round(mean(unlist(out[,2])),4)
+      stdev = sd(unlist(out[,2]))
+      print(paste('lower bound:',option.price - 1.96*stdev))
+      print(paste('upper bound:',option.price + 1.96*stdev))
     }
     else{
       # Basket Put
       option.price = round(mean(unlist(out[,4])),4)
+      stdev = sd(unlist(out[,4]))
+      print(paste('lower bound:',option.price - 1.96*stdev))
+      print(paste('upper bound:',option.price + 1.96*stdev))
     }
   }
   return(option.price)
@@ -157,7 +170,7 @@ system.time({
   out <- foreach(j=1:d, .combine = "rbind") %dorng% {
     stdNormal <- matrix(sqrt(delta.t) * rnorm(num.files*m),nrow = num.files)
     corrNormal <- t(chol.decomp) %*% stdNormal # C'Z
-    dW1 <- t(corrNormal) # simulated correlated returns 
+    dW1 <- t(corrNormal) # simulated correlated returns
     dW2 <- matrix(sqrt(delta.t) * rnorm(num.files*m),nrow=m,ncol = num.files)
     for (i in 1:m) { # cycle through time
       for (k in 1:num.files) { # cycle through underlyings
@@ -192,6 +205,8 @@ system.time({
   }
 })
 end_time <- Sys.time()
+UIC = get_price(out, call=TRUE, barrier = TRUE )
+DIP = get_price(out, call=FALSE, barrier = TRUE )
 print(paste("Used time for simulation:",end_time - start_time,"mins"))
 print(paste("Basket Call Price Estimate:",get_price(out, call=TRUE, barrier = FALSE )))
 print(paste("Basket Put Price Estimate:",get_price(out, call=FALSE, barrier = FALSE )))
@@ -204,6 +219,11 @@ stdNormal <- matrix(sqrt(delta.t) * rnorm(num.files*m),nrow = num.files)
 corrNormal <- t(chol.decomp) %*% stdNormal # C'Z
 dW1 <- t(corrNormal)
 dW2 <- matrix(sqrt(delta.t) * rnorm(num.files*m),nrow=m,ncol = num.files)
+# Initialize vol and stock price.
+nu <- s <- matrix(0, nrow=m+1,ncol=num.files) 
+nu[1,] <- theta          # First vol is current vol
+s[1, ] <- last.price     # First price is current price
+
 for (i in 1:m) { # cycle through time
   for (k in 1:num.files) {
     ds <- r*s[i,k]*delta.t + sqrt(nu[i,k])*s[i,k]*dW1[i,k]
@@ -225,4 +245,100 @@ df <- s.plt %>%
 ggplot(df, aes(x = id, y = value)) + 
   geom_line(aes(color = variable, linetype = "l")) + 
   scale_color_manual(values = rep(1:num.files))
+
+###################################################
+#######################################
+### Backtesting Performance
+
+#######################################
+### Functions
+preprocess.df = function(df){
+  
+  # Input: dataframe from rds files with Time and Closed_Price
+  # Output: datatable with date, Closed_Price and ret (return)
+  
+  setDT(df)
+  names(df) = str_replace_all(names(df)," ","_")
+  df = df[,list(date=Time,Closed_Price=as.numeric(Closed_Price)),]
+  df = df[,ret:= log(Closed_Price)-log(shift(Closed_Price,type="lag",n=1)),]
+  df = na.omit(df)
+  setkey(df,"date")
+  return(df)
+}
+
+join_price_table = function(df){
+  
+  # Input: list of dataframes (3D) of stock data (date, Closed_Price, ret)
+  # Output: Join price columns into one 2D dataframe
+  
+  df.ret = data.table(cbind(df[[1]]$date,df[[1]]$Closed_Price))
+  colnames(df.ret) = c("date","Closed_Price.1")
+  for (i in 2:num.files) {
+    df.temp = data.table(cbind(df[[i]]$date,df[[i]]$Closed_Price))
+    colnames(df.temp) = c("date",paste("Closed_Price.",i,sep=""))
+    df.ret = merge(df.ret,df.temp,by="date")
+  }
+  setDT(df.ret)
+  setkey(df.ret,date)
+  df.ret = df.ret[, lapply(.SD, as.numeric), by=date]
+  return(df.ret)
+}
+#######################################
+# Get all files from folder
+files = list.files(dataDir,pattern = "_backtest.rds")
+
+# Get number of underlyings
+num.files =length(files)
+
+# Read rds files
+df = lapply(paste(dataDir,files,sep=""),readRDS)
+df = lapply(df,setDT)
+df = lapply(df,preprocess.df)
+
+# Graphing basket one-year historical return
+if (num.files > 1) {
+  df.price = join_price_table(df)
+}else{
+  df.price = df[[1]][,list(date,Closed_Price)]
+}
+
+df.price[, mean.price := rowMeans(.SD), by=date]
+df.price$date = as.Date(df.price$date)
+df.price = df.price[date>"2018/03/31"&date<"2020/04/02"]
+df.price[, color := ifelse(date<"2019/04/02",'b','r')]
+ggplot(df.price, aes(x=date, y=mean.price, group = color, color=color))+ geom_line() +
+  geom_hline(yintercept=L.put,color='red') + geom_hline(yintercept=L.call)
+
+###################################################
+### Calculating participation rate
+com.fee = 0.035
+original.I = 1000000
+I = original.I*(1-com.fee)
+bond.yield = r
+B = exp(-bond.yield*T)*I
+print(paste("remaining amount to invest:",I-B))
+# UIC = 2.11278219108584
+# DIP = 1.453009055762
+# total.option.price = UIC + DIP
+# print(paste("total option price is", total.option.price))
+P.rate.call = (I-B)*0.5/(I*UIC)
+P.rate.put = (I-B)*0.5/(I*DIP)
+print(paste("participation rate for call is: ", P.rate.call*100, "%"))
+print(paste("participation rate for put is: ", P.rate.put*100, "%"))
+P.call = P.rate.call * I
+P.put = P.rate.put * I
+# print(paste("participation is: ", P))
+
+###################################################
+### Backtested payoff
+begin.price = df.price[date == "2019/04/01",mean.price]
+end.price = df.price[date == "2020/04/01",mean.price]
+# Assuming options active
+call.payoff = max(end.price - begin.price,0)
+put.payoff = max(begin.price - end.price,0)
+contract.payoff = P.call*call.payoff + P.put*put.payoff + I
+contract.ret = contract.payoff/original.I-1
+print(paste("Contract payoff:", contract.payoff))
+print(paste("Contract return:", contract.ret*100,"%"))
+print(paste("Portfolio return:", (end.price/begin.price-1)*100,"%"))
 
