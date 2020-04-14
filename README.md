@@ -7,16 +7,13 @@ The following instructions will get you a replication of the project results
 ### Prerequisites
 Required R packages are: `data.table`, `readxl`, `stringr`, `ggplot2`, `tidyverse`, `doParallel`, `doRNG`. 
 
-### Getting basket barrier options prices
-Please go to `project_pricing_multiple_barrier.R` and run the code to get the option prices. Please change `mainDir` to your current directory. 
-The programme uses small-time-step Monte Carlo Simulation to generate simulated price paths, and Heston model to simulate changing volatility. To reduce the computation time, it uses parallel computing for the large simulations
-
-### Getting single underlying barrier options prices
+### Getting single underlying barrier options prices and backtesting
 Please go to `roject_pricing_single_barrier.R` and run the code to get the option prices. Please change `mainDir` to your current directory. 
-The programme uses Monte Carlo Simulation and a closed form pricing formula with contract functions. If you wish to price one underlying only, it is adviced to use this programme to reduce computation time. 
+The programme uses Monte Carlo Simulation and a closed form pricing formula with contract functions. It gives the option prices, delta of the options, as well as backtesting results. If you wish to price more than one underlying, please use `project_pricing_multiple_barrier.R`. 
 
-### Getting backtesting results
-Please go to `project_backtest_performance.R` and run the code to see backtesting results. Please change `mainDir` to your current directory. 
+### Getting basket barrier options prices and backtesting
+Please go to `project_pricing_multiple_barrier.R` and run the code to get the option prices. Please change `mainDir` to your current directory. 
+The programme uses small-time-step Monte Carlo Simulation to generate simulated price paths, and Heston model to simulate changing volatility. To reduce the computation time, it uses parallel computing for the large simulations.
 
 ## Customizing results
 ### Changing underlyings
