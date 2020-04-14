@@ -1,6 +1,6 @@
 #######################################
 ### Code for data preprocessing
-# How to use: drop the historical price rds files into "Price_data" folder
+# How to use: drop the historical price rds files into "data" folder
 # Run the code and get the processed rds files
 #######################################
 ### Load packages
@@ -10,9 +10,9 @@ library(stringr)
 #######################################
 ### Directory setup
 # ***User edit area***
-mainDir = "E:/Yoyo Chan/Documents/FINA4354 Financial engineering/Group project/"
+mainDir = "C:/Users/kenneth.DESKTOP-DIPDF8F/Option-Pricing/"
 setwd(mainDir)
-dataDir = paste(mainDir , "Price_data/", sep="")
+dataDir = paste(mainDir , "data/", sep="")
 
 #######################################
 ## Save excel as rds for pricing
