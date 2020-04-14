@@ -1,11 +1,11 @@
 #######################################
 ### Code for single Barrier In-Options
 
-# How to use: drop the historical price rds files into "Price_data" folder
+# How to use: drop the historical price rds files into "data" folder
 # Adjust parameters in ***User edit area***
 # Run the code and get the single option price
 # For new data download from HKEX website:
-# Drop the downloaded excel files into "Price_data" folder
+# Drop the downloaded excel files into "data" folder
 # Run "data preprocessing.R" to get rds files with suitable timeframe 
 #######################################
 ### Load packages
@@ -14,15 +14,12 @@ library(readxl)
 library(stringr)
 library(ggplot2)
 library(tidyverse)
-library(doParallel)
-library(doRNG)
-registerDoParallel(cores=detectCores())
 #######################################
 ### Directory setup
 # ***User edit area***
-mainDir = "E:/Yoyo Chan/Documents/FINA4354 Financial engineering/Group project/"
+mainDir = "C:/Users/kenneth.DESKTOP-DIPDF8F/Option-Pricing/"
 setwd(mainDir)
-dataDir = paste(mainDir , "Price_data/", sep="")
+dataDir = paste(mainDir , "data/", sep="")
 
 #######################################
 # Global Variables
@@ -31,8 +28,9 @@ annual = 252
 d = 1*10^6
 T <- 1                   # time until expiration (in years)
 r = 1.950/100
-call.barrier.factor = 1.45 # Multiplier on strike price for call barrier
-put.barrier.factor = 0.7  # Multiplier on strike price for put barrier
+call.barrier.factor = 1.30 # Multiplier on strike price for call barrier
+put.barrier.factor = 0.75  # Multiplier on strike price for put barrier
+delta.h = 0.01 # Value of h used for Delta Calculation as a perentage of stock price
 #######################################
 # Functions
 preprocess.df = function(df){
@@ -48,7 +46,6 @@ preprocess.df = function(df){
   return(df)
 }
 
-### Addition in Function
 get_payoff_table = function(df,s0, K, L, sigma, r, T, type_basic,type_adjust){
   
   # input: df with one column of Wiener processes
@@ -70,8 +67,10 @@ get_payoff_table = function(df,s0, K, L, sigma, r, T, type_basic,type_adjust){
 }
 
 phi = function(S,L,type){
+  
   # Input: S, L, type
   # Output: L chopped off claim
+  
   if(type == 1){
     return(ifelse(S<L, S, 0)) 
   }
@@ -81,6 +80,10 @@ phi = function(S,L,type){
 }
 
 get_price = function(df, call=TRUE, vanilla=TRUE ,basic=TRUE){
+  
+  # Input: dataframe with payoff calculated
+  # Output: option price of call/ put with/without barrier
+  
   if (call==TRUE) {
     if (vanilla == TRUE) {
       option.price = round(mean(df$payoff.call), 4)
@@ -109,21 +112,13 @@ get_price = function(df, call=TRUE, vanilla=TRUE ,basic=TRUE){
   }
   return(option.price)
 }
-price.DOC <- function(s0, K, L, sigma, r) {
-  # Pricing Down-and-Out Call
-  if ( s0 <= L) return(0)
-  df = data.table(sqrt(T)*rnorm(d))
-  df = df[, list(dW=V1)]
-  df = get_payoff_table(df,s0, K, L, sigma, r, T, type_basic=2,type_adjust=2)
-  adjustment.factor <- (L / s0)^(2 * (r - (1/2) * sigma^2) / sigma^2)
-  price.basic <- get_price(df, call=TRUE, vanilla=FALSE, basic=TRUE)
-  price.adjusted <- get_price(df, call=TRUE, vanilla=FALSE, basic=FALSE)
-  return(price.basic - adjustment.factor * price.adjusted)
-}
+
 
 price.UIC <- function(s0, K, L, sigma, r) {
+  
   # Input: df, s0, K, L, sigma, r, T
   # Output: price of Up-and-In call
+  
   df = data.table(sqrt(T)*rnorm(d))
   df = df[, list(dW=V1)]
   df = get_payoff_table(df,s0, K, L, sigma, r, T, type_basic=2,type_adjust=1)
@@ -134,22 +129,12 @@ price.UIC <- function(s0, K, L, sigma, r) {
   return(price.basic + adjustment.factor * price.adjusted)
 }
 
-price.UOP <- function(s0, K, L, sigma, r) {
-  # Input: df, s0, K, L, sigma, r, T
-  # Output: price of Up-and-Out Put
-  if ( s0 >= L) return(0)
-  df = data.table(sqrt(T)*rnorm(d))
-  df = df[, list(dW=V1)]
-  df = get_payoff_table(df,s0, K, L, sigma, r, T, type_basic=1,type_adjust=1)
-  adjustment.factor <- (L / s0)^(2 * (r - (1/2) * sigma^2) / sigma^2)
-  price.basic <- get_price(df, call=FALSE, vanilla=FALSE, basic=TRUE)
-  price.adjusted <- get_price(df, call=FALSE, vanilla=FALSE, basic=FALSE)
-  return(price.basic - adjustment.factor * price.adjusted)
-}
 
 price.DIP <- function(s0, K, L, sigma, r) {
+  
   # Input: df, s0, K, L, sigma, r, T
   # Output: price of Down-and-In Put
+  
   df = data.table(sqrt(T)*rnorm(d))
   df = df[, list(dW=V1)]
   df = get_payoff_table(df,s0, K, L, sigma, r, T, type_basic=1,type_adjust=2)
@@ -159,13 +144,14 @@ price.DIP <- function(s0, K, L, sigma, r) {
   price.adjusted <- get_price(df, call=FALSE, vanilla=FALSE, basic=FALSE)
   return(price.basic + adjustment.factor * price.adjusted)
 }
-### End
+
 
 #######################################
 # read rds files
 files = list.files(dataDir,pattern = "_pricing.rds")
 file = files[1]
 data.df = readRDS(paste(dataDir,file,sep=""))
+# Alternative file reading method
 # data.df = readRDS(paste(dataDir,"Equities_8083.rds",sep=""))
 
 # Preprocess the raw table
@@ -177,18 +163,132 @@ sigma <- sd(data.df$ret) / sqrt(1/annual)   # Annualized vola.(standard deviatio
 s0 = last(data.df$Closed_Price)
 K = s0 # at-the-money option
 
-L = K*call.barrier.factor
-vanilla.call = price.UIC(s0, K, 0, sigma, r)
-UIC = price.UIC(s0, K, L, sigma, r)
-UOP = price.UOP(s0, K, L, sigma, r)
+L.call = K*call.barrier.factor
+# Vanilla call
+vanilla.call = price.UIC(s0, K, 0, sigma, r) # same function with K must be greater than L
+vanilla.call.h_up = price.UIC(s0+s0 *(delta.h/2), K, 0, sigma, r)
+vanilla.call.h_down = price.UIC(s0-s0 *(delta.h/2), K, 0, sigma, r)
+delta.vanilla.call = (vanilla.call.h_up-vanilla.call.h_down)/(s0*delta.h)
+# Up-and-In Call
+UIC = price.UIC(s0, K, L.call, sigma, r)
+UIC.h_up = price.UIC(s0+s0 *(delta.h/2), K, L.call, sigma, r)
+UIC.h_down = price.UIC(s0-s0 *(delta.h/2), K, L.call, sigma, r)
+delta.UIC.call = (UIC.h_up-UIC.h_down)/(s0*delta.h)
 print(paste("Vanilla Call Price Estimate:",vanilla.call))
 print(paste("Up-and-In Call Price Estimate:",UIC))
-print(paste("Up-and-Out Put Price Estimate:",UOP))
 
-L = K*put.barrier.factor
-vanilla.put = price.DIP(s0, K, 1000, sigma, r)
-DOC = price.DOC(s0, K, L, sigma, r)
-DIP = price.DIP(s0, K, L, sigma, r)
+
+L.put = K*put.barrier.factor
+# Vanilla put
+vanilla.put = price.DIP(s0, K, .Machine$integer.max, sigma, r) # same function with K must be smaller than L
+vanilla.put.h_up = price.DIP(s0+s0 *(delta.h/2), K, 1000, sigma, r)
+vanilla.put.h_down = price.DIP(s0-s0 *(delta.h/2), K, 1000, sigma, r)
+delta.vanilla.put = (vanilla.put.h_up-vanilla.put.h_down)/(s0*delta.h)
+# Down-and-In Put
+DIP = price.DIP(s0, K, L.put, sigma, r)
+DIP.h_up = price.DIP(s0+s0 *(delta.h/2), K, L.put, sigma, r)
+DIP.h_down = price.DIP(s0-s0 *(delta.h/2), K, L.put, sigma, r)
+delta.DIP.put = (DIP.h_up-DIP.h_down)/(s0*delta.h)
 print(paste("Vanilla Put Price Estimate:",vanilla.put))
-print(paste("Down-and-Out Call Price Estimate:",DOC))
 print(paste("Down-and-In Put Price Estimate:",DIP))
+
+print(paste("Delta of Vanilla Straddle: ",delta.UIC.call+delta.DIP.put))
+print(paste("Delta of Barrier Option Straddle: ",delta.vanilla.call+delta.vanilla.put))
+
+#######################################
+### Backtesting Performance
+
+#######################################
+### Functions
+preprocess.df = function(df){
+  
+  # Input: dataframe from rds files with Time and Closed_Price
+  # Output: datatable with date, Closed_Price and ret (return)
+  
+  setDT(df)
+  names(df) = str_replace_all(names(df)," ","_")
+  df = df[,list(date=Time,Closed_Price=as.numeric(Closed_Price)),]
+  df = df[,ret:= log(Closed_Price)-log(shift(Closed_Price,type="lag",n=1)),]
+  df = na.omit(df)
+  setkey(df,"date")
+  return(df)
+}
+
+join_price_table = function(df){
+  
+  # Input: list of dataframes (3D) of stock data (date, Closed_Price, ret)
+  # Output: Join price columns into one 2D dataframe
+  
+  df.ret = data.table(cbind(df[[1]]$date,df[[1]]$Closed_Price))
+  colnames(df.ret) = c("date","Closed_Price.1")
+  for (i in 2:num.files) {
+    df.temp = data.table(cbind(df[[i]]$date,df[[i]]$Closed_Price))
+    colnames(df.temp) = c("date",paste("Closed_Price.",i,sep=""))
+    df.ret = merge(df.ret,df.temp,by="date")
+  }
+  setDT(df.ret)
+  setkey(df.ret,date)
+  df.ret = df.ret[, lapply(.SD, as.numeric), by=date]
+  return(df.ret)
+}
+#######################################
+# Get all files from folder
+files = list.files(dataDir,pattern = "_backtest.rds")
+
+# Get number of underlyings
+num.files =length(files)
+
+# Read rds files
+df = lapply(paste(dataDir,files,sep=""),readRDS)
+df = lapply(df,setDT)
+df = lapply(df,preprocess.df)
+
+# Graphing basket one-year historical return
+if (num.files > 1) {
+  df.price = join_price_table(df)
+}else{
+  df.price = df[[1]][,list(date,Closed_Price)]
+}
+
+df.price[, mean.price := rowMeans(.SD), by=date]
+df.price$date = as.Date(df.price$date)
+df.price = df.price[date>"2018/03/31"&date<"2020/04/02"]
+df.price[, color := ifelse(date<"2019/04/02",'b','r')]
+ggplot(df.price, aes(x=date, y=mean.price, group = color, color=color))+ geom_line() +
+  geom_hline(yintercept=L.put,color='red') + geom_hline(yintercept=L.call)
+
+###################################################
+### Calculating participation rate
+com.fee = 0.035
+original.I = 1000000
+I = original.I*(1-com.fee)
+bond.yield = r
+B = exp(-bond.yield*T)*I
+print(paste("remaining amount to invest:",I-B))
+# UIC = 2.11278219108584
+# DIP = 1.453009055762
+# total.option.price = UIC + DIP
+# print(paste("total option price is", total.option.price))
+P.rate.call = (I-B)*0.5/(I*UIC)
+P.rate.put = (I-B)*0.5/(I*DIP)
+print(paste("participation rate for call is: ", P.rate.call*100, "%"))
+print(paste("participation rate for put is: ", P.rate.put*100, "%"))
+P.call = P.rate.call * I
+P.put = P.rate.put * I
+# print(paste("participation is: ", P))
+
+###################################################
+### Backtested payoff
+begin.price = df.price[date == "2019/04/01",mean.price]
+end.price = df.price[date == "2020/04/01",mean.price]
+# Assuming options active
+call.payoff = max(end.price - begin.price,0)
+put.payoff = max(begin.price - end.price,0)
+contract.payoff = P.call*call.payoff + P.put*put.payoff + I
+contract.ret = contract.payoff/original.I-1
+print(paste("Options payoff:",P.call*call.payoff + P.put*put.payoff))
+print(paste("Options return:",(P.call*call.payoff + P.put*put.payoff)/(I-B)*100,"%"))
+print(paste("Contract payoff:", contract.payoff))
+print(paste("Contract return:", contract.ret*100,"%"))
+print(paste("Portfolio return:", (end.price/begin.price-1)*100,"%"))
+
