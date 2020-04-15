@@ -69,7 +69,9 @@ phi = function(S,L,type){
 get_price = function(df, call=TRUE, vanilla=TRUE ,basic=TRUE){
   if (call==TRUE) {
     if (vanilla == TRUE) {
+      sd = sd(df$payoff.call)/sqrt(d)
       option.price = round(mean(df$payoff.call), 4)
+      print(paste("Confidence Interval: [ ",mean(df$payoff.call)-1.96*sd,", ",mean(df$payoff.call)+1.96*sd," ]"))
       return(option.price)
     }
     else{
@@ -85,7 +87,9 @@ get_price = function(df, call=TRUE, vanilla=TRUE ,basic=TRUE){
   }
   else{ # Put
     if (vanilla == TRUE) {
+      sd = sd(df$payoff.call)/sqrt(d)
       option.price = round(mean(df$payoff.put), 4)
+      print(paste("Confidence Interval: [ ",mean(df$payoff.call)-1.96*sd,", ",mean(df$payoff.call)+1.96*sd," ]"))
       return(option.price)
     }
     else{
@@ -112,9 +116,9 @@ price.DOC <- function(s0, K, L, sigma, r) {
   price.basic <- unlist(price.basic)
   price.adjusted <- get_price(df, call=TRUE, vanilla=FALSE, basic=FALSE)
   price.adjusted <- unlist(price.adjusted)
-  temp.mean <- price.basic[1] - adjustment.factor * price.adjusted[1]
-  temp.sd <- (price.basic[2] + adjustment.factor^2 * price.adjusted[2])^0.5
-  print(paste("Confidence Interval: ",temp.mean-1.96*temp.sd,", ",temp.mean+1.96*temp.sd))
+  # temp.mean <- price.basic[1] - adjustment.factor * price.adjusted[1]
+  # temp.sd <- (price.basic[2] + adjustment.factor^2 * price.adjusted[2])^0.5
+  # print(paste("Confidence Interval: ",temp.mean-1.96*temp.sd,", ",temp.mean+1.96*temp.sd))
   return(price.basic[1] - adjustment.factor * price.adjusted[1])
 }
 
@@ -130,9 +134,9 @@ price.UIC <- function(s0, K, L, sigma, r) {
   price.basic = unlist(price.basic)
   price.adjusted <- get_price(df, call=TRUE, vanilla=FALSE, basic=FALSE)
   price.adjusted <- unlist(price.adjusted)
-  temp.mean <- price.basic[1] + adjustment.factor * price.adjusted[1]
-  temp.sd <- (price.basic[2] + adjustment.factor^2 * price.adjusted[2])^0.5
-  print(paste("Confidence Interval: ",temp.mean-1.96*temp.sd,", ",temp.mean+1.96*temp.sd))
+  # temp.mean <- price.basic[1] + adjustment.factor * price.adjusted[1]
+  # temp.sd <- (price.basic[2] + adjustment.factor^2 * price.adjusted[2])^0.5
+  # print(paste("Confidence Interval: ",temp.mean-1.96*temp.sd,", ",temp.mean+1.96*temp.sd))
   return(price.basic[1] + adjustment.factor * price.adjusted[1])
 }
 
@@ -148,9 +152,9 @@ price.UOP <- function(s0, K, L, sigma, r) {
   price.basic <- unlist(price.basic)
   price.adjusted <- get_price(df, call=FALSE, vanilla=FALSE, basic=FALSE)
   price.adjusted <- unlist(price.adjusted)
-  temp.mean <- price.basic[1] - adjustment.factor * price.adjusted[1]
-  temp.sd <- (price.basic[2] + adjustment.factor^2 * price.adjusted[2])^0.5
-  print(paste("Confidence Interval: ",temp.mean-1.96*temp.sd,", ",temp.mean+1.96*temp.sd))
+  # temp.mean <- price.basic[1] - adjustment.factor * price.adjusted[1]
+  # temp.sd <- (price.basic[2] + adjustment.factor^2 * price.adjusted[2])^0.5
+  # print(paste("Confidence Interval: ",temp.mean-1.96*temp.sd,", ",temp.mean+1.96*temp.sd))
   return(price.basic[1] - adjustment.factor * price.adjusted[1])
 }
 
@@ -166,9 +170,9 @@ price.DIP <- function(s0, K, L, sigma, r) {
   price.basic <- unlist(price.basic)
   price.adjusted <- get_price(df, call=FALSE, vanilla=FALSE, basic=FALSE)
   price.adjusted <- unlist(price.adjusted)
-  temp.mean <- price.basic[1] + adjustment.factor * price.adjusted[1]
-  temp.sd <- (price.basic[2] + adjustment.factor^2 * price.adjusted[2])^0.5
-  print(paste("Confidence Interval: ",temp.mean-1.96*temp.sd,", ",temp.mean+1.96*temp.sd))
+  # temp.mean <- price.basic[1] + adjustment.factor * price.adjusted[1]
+  # temp.sd <- (price.basic[2] + adjustment.factor^2 * price.adjusted[2])^0.5
+  # print(paste("Confidence Interval: ",temp.mean-1.96*temp.sd,", ",temp.mean+1.96*temp.sd))
   return(price.basic[1] + adjustment.factor * price.adjusted[1])
 }
 ### End
@@ -290,4 +294,3 @@ print(paste("Options return:",(P.call*call.payoff + P.put*put.payoff)/(I-B)*100,
 print(paste("Contract payoff:", contract.payoff))
 print(paste("Contract return:", contract.ret*100,"%"))
 print(paste("Portfolio return:", (end.price/begin.price-1)*100,"%"))
-
