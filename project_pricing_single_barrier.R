@@ -85,12 +85,15 @@ get_price = function(df, call=TRUE, vanilla=TRUE ,basic=TRUE){
   if (call==TRUE) {
     if (vanilla == TRUE) {
       option.price = round(mean(df$payoff.call), 4)
+      return(option.price)
     }
     else{
       if (basic==TRUE) {
+        std.err = var(df$payoff.call.barrier)
         option.price = round(mean(df$payoff.call.barrier), 4)
       }
       else{
+        std.err = var(df$payoff.call.barrier.adj)
         option.price = round(mean(df$payoff.call.barrier.adj), 4)
       }
     }
@@ -98,17 +101,20 @@ get_price = function(df, call=TRUE, vanilla=TRUE ,basic=TRUE){
   else{ # Put
     if (vanilla == TRUE) {
       option.price = round(mean(df$payoff.put), 4)
+      return(option.price)
     }
     else{
       if (basic==TRUE) {
+        std.err = var(df$payoff.put.barrier)
         option.price = round(mean(df$payoff.put.barrier), 4)
       }
       else{
+        std.err = var(df$payoff.put.barrier.adj)
         option.price = round(mean(df$payoff.put.barrier.adj), 4)
       }
     }
   }
-  return(option.price)
+  return(list(option.price,std.err))
 }
 price.DOC <- function(s0, K, L, sigma, r) {
   # Pricing Down-and-Out Call
@@ -118,8 +124,13 @@ price.DOC <- function(s0, K, L, sigma, r) {
   df = get_payoff_table(df,s0, K, L, sigma, r, T, type_basic=2,type_adjust=2)
   adjustment.factor <- (L / s0)^(2 * (r - (1/2) * sigma^2) / sigma^2)
   price.basic <- get_price(df, call=TRUE, vanilla=FALSE, basic=TRUE)
+  price.basic <- unlist(price.basic)
   price.adjusted <- get_price(df, call=TRUE, vanilla=FALSE, basic=FALSE)
-  return(price.basic - adjustment.factor * price.adjusted)
+  price.adjusted <- unlist(price.adjusted)
+  temp.mean <- price.basic[1] - adjustment.factor * price.adjusted[1]
+  temp.sd <- (price.basic[2] + adjustment.factor^2 * price.adjusted[2])^0.5
+  print(paste("Confidence Interval: ",temp.mean-1.96*temp.sd,", ",temp.mean+1.96*temp.sd))
+  return(price.basic[1] - adjustment.factor * price.adjusted[1])
 }
 
 price.UIC <- function(s0, K, L, sigma, r) {
@@ -131,8 +142,13 @@ price.UIC <- function(s0, K, L, sigma, r) {
   if ( s0 >= L) return(get_price(df, call=TRUE, vanilla=TRUE)) # Get rid of easy case.
   adjustment.factor <- (L / s0)^(2 * (r - (1/2) * sigma^2) / sigma^2)
   price.basic <- get_price(df, call=TRUE, vanilla=FALSE, basic=TRUE)
+  price.basic = unlist(price.basic)
   price.adjusted <- get_price(df, call=TRUE, vanilla=FALSE, basic=FALSE)
-  return(price.basic + adjustment.factor * price.adjusted)
+  price.adjusted <- unlist(price.adjusted)
+  temp.mean <- price.basic[1] + adjustment.factor * price.adjusted[1]
+  temp.sd <- (price.basic[2] + adjustment.factor^2 * price.adjusted[2])^0.5
+  print(paste("Confidence Interval: ",temp.mean-1.96*temp.sd,", ",temp.mean+1.96*temp.sd))
+  return(price.basic[1] + adjustment.factor * price.adjusted[1])
 }
 
 price.UOP <- function(s0, K, L, sigma, r) {
@@ -144,8 +160,13 @@ price.UOP <- function(s0, K, L, sigma, r) {
   df = get_payoff_table(df,s0, K, L, sigma, r, T, type_basic=1,type_adjust=1)
   adjustment.factor <- (L / s0)^(2 * (r - (1/2) * sigma^2) / sigma^2)
   price.basic <- get_price(df, call=FALSE, vanilla=FALSE, basic=TRUE)
+  price.basic <- unlist(price.basic)
   price.adjusted <- get_price(df, call=FALSE, vanilla=FALSE, basic=FALSE)
-  return(price.basic - adjustment.factor * price.adjusted)
+  price.adjusted <- unlist(price.adjusted)
+  temp.mean <- price.basic[1] - adjustment.factor * price.adjusted[1]
+  temp.sd <- (price.basic[2] + adjustment.factor^2 * price.adjusted[2])^0.5
+  print(paste("Confidence Interval: ",temp.mean-1.96*temp.sd,", ",temp.mean+1.96*temp.sd))
+  return(price.basic[1] - adjustment.factor * price.adjusted[1])
 }
 
 price.DIP <- function(s0, K, L, sigma, r) {
@@ -157,8 +178,13 @@ price.DIP <- function(s0, K, L, sigma, r) {
   if ( s0 <= L) return(get_price(df, call=FALSE, vanilla=TRUE))
   adjustment.factor <- (L / s0)^(2 * (r - (1/2) * sigma^2) / sigma^2)
   price.basic <- get_price(df, call=FALSE, vanilla=FALSE, basic=TRUE)
+  price.basic <- unlist(price.basic)
   price.adjusted <- get_price(df, call=FALSE, vanilla=FALSE, basic=FALSE)
-  return(price.basic + adjustment.factor * price.adjusted)
+  price.adjusted <- unlist(price.adjusted)
+  temp.mean <- price.basic[1] + adjustment.factor * price.adjusted[1]
+  temp.sd <- (price.basic[2] + adjustment.factor^2 * price.adjusted[2])^0.5
+  print(paste("Confidence Interval: ",temp.mean-1.96*temp.sd,", ",temp.mean+1.96*temp.sd))
+  return(price.basic[1] + adjustment.factor * price.adjusted[1])
 }
 ### End
 
