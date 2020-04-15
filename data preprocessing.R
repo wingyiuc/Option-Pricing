@@ -64,3 +64,16 @@ for (file in files) {
   df = preprocess.df(df)
   saveRDS(df, paste(dataDir,filename,"_pricing.rds",sep=""))
 }
+
+#######################################
+## Save csv from Yahoo Finance as rds for backtesting
+files = list.files(dataDir,pattern = ".csv")
+for (file in files) {
+  df = read.csv(paste(dataDir,file,sep=""))
+  filename = strsplit(file,".csv")[1]
+  setDT(df)
+  df = df[,.(Time=format(as.Date(Date),"%Y/%m/%d"), Closed_Price=Adj.Close)]
+  df = df[Time > "2018/03/31" & Time<"2020/04/02",]
+  df = preprocess.df(df)
+  saveRDS(df, paste(dataDir,filename,"_backtest.rds",sep=""))
+}
