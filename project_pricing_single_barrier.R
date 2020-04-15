@@ -69,7 +69,7 @@ phi = function(S,L,type){
 get_price = function(df, call=TRUE, vanilla=TRUE ,basic=TRUE){
   if (call==TRUE) {
     if (vanilla == TRUE) {
-      sd = sd(df$payoff.call)
+      sd = sd(df$payoff.call)/sqrt(d)
       option.price = round(mean(df$payoff.call), 4)
       print(paste("Confidence Interval: [ ",mean(df$payoff.call)-1.96*sd,", ",mean(df$payoff.call)+1.96*sd," ]"))
       return(option.price)
@@ -87,7 +87,7 @@ get_price = function(df, call=TRUE, vanilla=TRUE ,basic=TRUE){
   }
   else{ # Put
     if (vanilla == TRUE) {
-      sd = sd(df$payoff.call)
+      sd = sd(df$payoff.call)/sqrt(d)
       option.price = round(mean(df$payoff.put), 4)
       print(paste("Confidence Interval: [ ",mean(df$payoff.call)-1.96*sd,", ",mean(df$payoff.call)+1.96*sd," ]"))
       return(option.price)
