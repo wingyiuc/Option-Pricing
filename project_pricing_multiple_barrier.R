@@ -34,7 +34,7 @@ T <- 1                    # time until expiration (in years)
 m <- T * 252              # number of subintervals
 delta.t <- T / m          # time per subinterval (in years)
 r = 1.950/100             # Risk free rate
-call.barrier.factor = 1.45 # Multiplier on strike price to calculate call barrier
+call.barrier.factor = 1.3 # Multiplier on strike price to calculate call barrier
 put.barrier.factor = 0.7  # Multiplier on strike price to calculate put barrier
 kappa <- 2                # Speed of mean reversion.
 xi <- 0.9                 # Vol of vol.
@@ -42,19 +42,6 @@ set.seed(1)
 
 #######################################
 ### Functions
-preprocess.df = function(df){
-  
-  # Input: dataframe from rds files with Time and Closed_Price
-  # Output: datatable with date, Closed_Price and ret (return)
-  
-  setDT(df)
-  names(df) = str_replace_all(names(df)," ","_")
-  df = df[,list(date=Time,Closed_Price=as.numeric(Closed_Price)),]
-  df = df[,ret:= log(Closed_Price)-log(shift(Closed_Price,type="lag",n=1)),]
-  df = na.omit(df)
-  setkey(df,"date")
-  return(df)
-}
 
 join_ret_table = function(df){
   
@@ -124,9 +111,6 @@ num.files =length(files)
 # Read rds files
 df = lapply(paste(dataDir,files,sep=""),readRDS)
 
-# Preprocess the raw table
-# Compute the return from closed price
-df = lapply(df,preprocess.df)
 
 # Get annualized volatility, last price and strike price
 theta = unlist(lapply(df,function(df)sd(df$ret)/sqrt(1/annual)))  # long term vol
@@ -257,36 +241,34 @@ files = list.files(dataDir,pattern = "_backtest.rds")
 num.files =length(files)
 
 # Read rds files
-df = lapply(paste(dataDir,files,sep=""),readRDS)
-df = lapply(df,setDT)
-df = lapply(df,preprocess.df)
+df.pricing = lapply(paste(dataDir,files,sep=""),readRDS)
+df.pricing = lapply(df.pricing,setDT)
 
 # Graphing basket one-year historical return
 if (num.files > 1) {
-  df.price = join_price_table(df)
+  df.price = join_price_table(df.pricing)
 }else{
   df.price = df[[1]][,list(date,Closed_Price)]
 }
 
 df.price[, mean.price := rowMeans(.SD), by=date]
 df.price$date = as.Date(df.price$date)
-df.price = df.price[date>"2018/03/31"&date<"2020/04/02"]
-df.price[, color := ifelse(date<"2019/04/02",'b','r')]
+contract.begin.date = last(df[[1]]$date)
+call.active = any(df.price[date>contract.begin.date,mean.price] >L.call)
+put.active = any(df.price[date>contract.begin.date,mean.price] < L.put)
+df.price[, color := ifelse(date<contract.begin.date,'b','r')] # Optional
 ggplot(df.price, aes(x=date, y=mean.price, group = color, color=color))+ geom_line() +
   geom_hline(yintercept=L.put,color='red') + geom_hline(yintercept=L.call)
 
 ###################################################
 ### Calculating participation rate
-com.fee = 0.035
+com.fee = 0.01
 original.I = 1000000
 I = original.I*(1-com.fee)
 bond.yield = r
-B = exp(-bond.yield*T)*I
+B = exp(-bond.yield*T)*original.I
 print(paste("remaining amount to invest:",I-B))
-# UIC = 2.11278219108584
-# DIP = 1.453009055762
-# total.option.price = UIC + DIP
-# print(paste("total option price is", total.option.price))
+
 P.rate.call = (I-B)*0.5/(I*UIC)
 P.rate.put = (I-B)*0.5/(I*DIP)
 print(paste("participation rate for call is: ", P.rate.call*100, "%"))
@@ -297,15 +279,16 @@ P.put = P.rate.put * I
 
 ###################################################
 ### Backtested payoff
-begin.price = df.price[date == "2019/04/01",mean.price]
-end.price = df.price[date == "2020/04/01",mean.price]
+begin.price = K
+end.price = last(df.price$mean.price)
 # Assuming options active
-call.payoff = max(end.price - begin.price,0)
-put.payoff = max(begin.price - end.price,0)
-contract.payoff = P.call*call.payoff + P.put*put.payoff + I
+call.payoff = ifelse(call.active,max(end.price - begin.price,0),0)
+put.payoff = ifelse(put.active,max(begin.price - end.price,0),0)
+contract.payoff = P.call*call.payoff + P.put*put.payoff + original.I
 contract.ret = contract.payoff/original.I-1
+print(paste("Options payoff:",P.call*call.payoff + P.put*put.payoff))
+print(paste("Options return:",(P.call*call.payoff + P.put*put.payoff)/(I-B)*100,"%"))
 print(paste("Contract payoff:", contract.payoff))
 print(paste("Contract return:", contract.ret*100,"%"))
 print(paste("Portfolio return:", (end.price/begin.price-1)*100,"%"))
 
-###################################################
