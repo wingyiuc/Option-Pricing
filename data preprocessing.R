@@ -38,6 +38,7 @@ for (file in files) {
   filename = strsplit(file,".xlsx")[1]
   setDT(df)
   df = df[Time > "2018/03/31" & Time<"2019/04/02",]
+  df = preprocess.df(df)
   saveRDS(df, paste(dataDir,filename,"_pricing.rds",sep="") )
 }
 
@@ -49,6 +50,7 @@ for (file in files) {
   filename = strsplit(file,".xlsx")[1]
   setDT(df)
   df = df[Time > "2018/03/31" & Time<"2020/04/02",]
+  df = preprocess.df(df)
   saveRDS(df, paste(dataDir,filename,"_backtest.rds",sep="") )
 }
 
