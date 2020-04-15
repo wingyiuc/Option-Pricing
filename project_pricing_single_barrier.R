@@ -240,10 +240,10 @@ join_price_table = function(df){
 }
 #######################################
 # Get all files from folder
-files = list.files(dataDir,pattern = "_backtest.rds")
+files = list.files(dataDir,pattern = "_backtest.rds")[1]
 
 # Get number of underlyings
-num.files =length(files)
+num.files = 1
 
 # Read rds files
 df = lapply(paste(dataDir,files,sep=""),readRDS)
@@ -259,17 +259,20 @@ if (num.files > 1) {
 
 df.price[, mean.price := rowMeans(.SD), by=date]
 df.price$date = as.Date(df.price$date)
-df.price[, color := ifelse(date<"2019/04/02",'b','r')] # Optional
+contract.begin.date = last(data.df$date)
+call.active = any(df.price[date>contract.begin.date,mean.price] >L.call)
+put.active = any(df.price[date>contract.begin.date,mean.price] < L.put)
+df.price[, color := ifelse(date<contract.begin.date,'b','r')] # Optional
 ggplot(df.price, aes(x=date, y=mean.price, group = color, color=color))+ geom_line() +
   geom_hline(yintercept=L.put,color='red') + geom_hline(yintercept=L.call)
 
 ###################################################
 ### Calculating participation rate
-com.fee = 0.035
+com.fee = 0.01
 original.I = 1000000
 I = original.I*(1-com.fee)
 bond.yield = r
-B = exp(-bond.yield*T)*I
+B = exp(-bond.yield*T)*original.I
 print(paste("remaining amount to invest:",I-B))
 
 P.rate.call = (I-B)*0.5/(I*UIC)
@@ -282,12 +285,12 @@ P.put = P.rate.put * I
 
 ###################################################
 ### Backtested payoff
-begin.price = df.price[date == "2019/04/01",mean.price]
-end.price = df.price[date == "2020/04/01",mean.price]
+begin.price = K
+end.price = last(df.price$mean.price)
 # Assuming options active
-call.payoff = max(end.price - begin.price,0)
-put.payoff = max(begin.price - end.price,0)
-contract.payoff = P.call*call.payoff + P.put*put.payoff + I
+call.payoff = ifelse(call.active,max(end.price - begin.price,0),0)
+put.payoff = ifelse(put.active,max(begin.price - end.price,0),0)
+contract.payoff = P.call*call.payoff + P.put*put.payoff + original.I
 contract.ret = contract.payoff/original.I-1
 print(paste("Options payoff:",P.call*call.payoff + P.put*put.payoff))
 print(paste("Options return:",(P.call*call.payoff + P.put*put.payoff)/(I-B)*100,"%"))
