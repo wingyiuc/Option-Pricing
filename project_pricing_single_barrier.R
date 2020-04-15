@@ -28,8 +28,8 @@ annual = 252
 d = 1*10^7
 T <- 1                   # time until expiration (in years)
 r = 1.950/100
-call.barrier.factor = 1.45 # Multiplier on strike price for call barrier
-put.barrier.factor = 0.7  # Multiplier on strike price for put barrier
+call.barrier.factor = 1.35 # Multiplier on strike price for call barrier
+put.barrier.factor = 0.75  # Multiplier on strike price for put barrier
 delta.h = 0.01 # Value of h used for Delta Calculation as a perentage of stock price
 set.seed(1)
 #######################################
@@ -180,35 +180,31 @@ file = files[1]
 data.df = readRDS(paste(dataDir,file,sep=""))
 # data.df = readRDS(paste(dataDir,"Equities_8083.rds",sep=""))
 
-# Preprocess the raw table
-# Compute the return from closed price
-# data.df = preprocess.df(data.df)
-
 # Get annualized volatility, last price and strike price
 sigma <- sd(data.df$ret) / sqrt(1/annual)   # Annualized vola.(standard deviation)
 s0 = last(data.df$Closed_Price)
 K = s0 # at-the-money option
-L = K*call.barrier.factor
+L.call = K*call.barrier.factor
 vanilla.call = price.UIC(s0, K, 0, sigma, r)
 vanilla.call.h_up = price.UIC(s0+s0 *(delta.h/2), K, 0, sigma, r)
 vanilla.call.h_down = price.UIC(s0-s0 *(delta.h/2), K, 0, sigma, r)
 delta.vanilla.call = (vanilla.call.h_up-vanilla.call.h_down)/(s0*delta.h)
-UIC = price.UIC(s0, K, L, sigma, r)
-UIC.h_up = price.UIC(s0+s0 *(delta.h/2), K, L, sigma, r)
-UIC.h_down = price.UIC(s0-s0 *(delta.h/2), K, L, sigma, r)
+UIC = price.UIC(s0, K, L.call, sigma, r)
+UIC.h_up = price.UIC(s0+s0 *(delta.h/2), K, L.call, sigma, r)
+UIC.h_down = price.UIC(s0-s0 *(delta.h/2), K, L.call, sigma, r)
 delta.UIC.call = (UIC.h_up-UIC.h_down)/(s0*delta.h)
 print(paste("Vanilla Call Price Estimate:",vanilla.call))
 print(paste("Up-and-In Call Price Estimate:",UIC))
 
 
-L = K*put.barrier.factor
+L.put = K*put.barrier.factor
 vanilla.put = price.DIP(s0, K, 100000, sigma, r)
 vanilla.put.h_up = price.DIP(s0+s0 *(delta.h/2), K, 100000, sigma, r)
 vanilla.put.h_down = price.DIP(s0-s0 *(delta.h/2), K, 100000, sigma, r)
 delta.vanilla.put = (vanilla.put.h_up-vanilla.put.h_down)/(s0*delta.h)
-DIP = price.DIP(s0, K, L, sigma, r)
-DIP.h_up = price.DIP(s0+s0 *(delta.h/2), K, L, sigma, r)
-DIP.h_down = price.DIP(s0-s0 *(delta.h/2), K, L, sigma, r)
+DIP = price.DIP(s0, K, L.put, sigma, r)
+DIP.h_up = price.DIP(s0+s0 *(delta.h/2), K, L.put, sigma, r)
+DIP.h_down = price.DIP(s0-s0 *(delta.h/2), K, L.put, sigma, r)
 delta.DIP.put = (DIP.h_up-DIP.h_down)/(s0*delta.h)
 print(paste("Vanilla Put Price Estimate:",vanilla.put))
 print(paste("Down-and-In Put Price Estimate:",DIP))
@@ -220,19 +216,6 @@ print(paste("Delta of Barrier Option Straddle: ",delta.vanilla.call+delta.vanill
 
 #######################################
 ### Functions
-preprocess.df = function(df){
-  
-  # Input: dataframe from rds files with Time and Closed_Price
-  # Output: datatable with date, Closed_Price and ret (return)
-  
-  setDT(df)
-  names(df) = str_replace_all(names(df)," ","_")
-  df = df[,list(date=Time,Closed_Price=as.numeric(Closed_Price)),]
-  df = df[,ret:= log(Closed_Price)-log(shift(Closed_Price,type="lag",n=1)),]
-  df = na.omit(df)
-  setkey(df,"date")
-  return(df)
-}
 
 join_price_table = function(df){
   
@@ -261,7 +244,7 @@ num.files =length(files)
 # Read rds files
 df = lapply(paste(dataDir,files,sep=""),readRDS)
 df = lapply(df,setDT)
-df = lapply(df,preprocess.df)
+
 
 # Graphing basket one-year historical return
 if (num.files > 1) {
@@ -272,8 +255,7 @@ if (num.files > 1) {
 
 df.price[, mean.price := rowMeans(.SD), by=date]
 df.price$date = as.Date(df.price$date)
-df.price = df.price[date>"2018/03/31"&date<"2020/04/02"]
-df.price[, color := ifelse(date<"2019/04/02",'b','r')]
+df.price[, color := ifelse(date<"2019/04/02",'b','r')] # Optional
 ggplot(df.price, aes(x=date, y=mean.price, group = color, color=color))+ geom_line() +
   geom_hline(yintercept=L.put,color='red') + geom_hline(yintercept=L.call)
 
@@ -285,10 +267,7 @@ I = original.I*(1-com.fee)
 bond.yield = r
 B = exp(-bond.yield*T)*I
 print(paste("remaining amount to invest:",I-B))
-# UIC = 2.11278219108584
-# DIP = 1.453009055762
-# total.option.price = UIC + DIP
-# print(paste("total option price is", total.option.price))
+
 P.rate.call = (I-B)*0.5/(I*UIC)
 P.rate.put = (I-B)*0.5/(I*DIP)
 print(paste("participation rate for call is: ", P.rate.call*100, "%"))
