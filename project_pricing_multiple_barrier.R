@@ -84,14 +84,14 @@ get_price = function(out, call=TRUE, barrier=TRUE){
       # Up-and-In Basket Call
       
       option.price = round(mean(unlist(out[,1])),4)
-      stdev = sd(unlist(out[,1]))
+      stdev = sd(unlist(out[,1]))/sqrt(d)
       print(paste('lower bound:',option.price - 1.96*stdev))
       print(paste('upper bound:',option.price + 1.96*stdev))
     }
     else{ 
       # Basket call
       option.price = round(mean(unlist(out[,3])),4)
-      stdev = sd(unlist(out[,3]))
+      stdev = sd(unlist(out[,3]))/sqrt(d)
       print(paste('lower bound:',option.price - 1.96*stdev))
       print(paste('upper bound:',option.price + 1.96*stdev))
     }
@@ -100,14 +100,14 @@ get_price = function(out, call=TRUE, barrier=TRUE){
     if (barrier == TRUE) {
       # Down-and-in Basket Put
       option.price = round(mean(unlist(out[,2])),4)
-      stdev = sd(unlist(out[,2]))
+      stdev = sd(unlist(out[,2]))/sqrt(d)
       print(paste('lower bound:',option.price - 1.96*stdev))
       print(paste('upper bound:',option.price + 1.96*stdev))
     }
     else{
       # Basket Put
       option.price = round(mean(unlist(out[,4])),4)
-      stdev = sd(unlist(out[,4]))
+      stdev = sd(unlist(out[,4]))/sqrt(d)
       print(paste('lower bound:',option.price - 1.96*stdev))
       print(paste('upper bound:',option.price + 1.96*stdev))
     }
@@ -213,40 +213,6 @@ print(paste("Basket Put Price Estimate:",get_price(out, call=FALSE, barrier = FA
 print(paste("Basket Up-and-In Call Price Estimate:",get_price(out, call=TRUE, barrier = TRUE )))
 print(paste("Basket Down-and-In Put Price Estimate:",get_price(out, call=FALSE, barrier = TRUE )))
 
-###################################################
-# Graphing a one-year simulation
-stdNormal <- matrix(sqrt(delta.t) * rnorm(num.files*m),nrow = num.files)
-corrNormal <- t(chol.decomp) %*% stdNormal # C'Z
-dW1 <- t(corrNormal)
-dW2 <- matrix(sqrt(delta.t) * rnorm(num.files*m),nrow=m,ncol = num.files)
-# Initialize vol and stock price.
-nu <- s <- matrix(0, nrow=m+1,ncol=num.files) 
-nu[1,] <- theta          # First vol is current vol
-s[1, ] <- last.price     # First price is current price
-
-for (i in 1:m) { # cycle through time
-  for (k in 1:num.files) {
-    ds <- r*s[i,k]*delta.t + sqrt(nu[i,k])*s[i,k]*dW1[i,k]
-    dnu <- kappa*(theta[k]-nu[i,k])*delta.t + xi*sqrt(nu[i,k])*dW2[i,k]
-    s[i + 1,k] <- s[i,k] + ds
-    nu[i + 1,k] <- max(nu[i,k] + dnu, 0) # Ensure non-negative 'nu'.
-  }
-}
-# Basket simulation 
-s.m = rowMeans(s)
-plot(s.m, type = 'l')
-
-# Individual stocks simulation
-s.plt = data.frame(s)
-s.plt$id = seq.int(nrow(s.plt))
-df <- s.plt %>%
-  select(colnames(s.plt)) %>%
-  gather(key = "variable", value = "value", -id)
-ggplot(df, aes(x = id, y = value)) + 
-  geom_line(aes(color = variable, linetype = "l")) + 
-  scale_color_manual(values = rep(1:num.files))
-
-###################################################
 #######################################
 ### Backtesting Performance
 
@@ -342,3 +308,4 @@ print(paste("Contract payoff:", contract.payoff))
 print(paste("Contract return:", contract.ret*100,"%"))
 print(paste("Portfolio return:", (end.price/begin.price-1)*100,"%"))
 
+###################################################
