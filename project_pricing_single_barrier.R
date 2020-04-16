@@ -28,8 +28,9 @@ annual = 252
 d = 1*10^7
 T <- 1                   # time until expiration (in years)
 r = 1.950/100
-call.barrier.factor = 1.35 # Multiplier on strike price for call barrier
-put.barrier.factor = 0.75  # Multiplier on strike price for put barrier
+bond.yield = 3.6/100     # Corporate bond yield for principal guaranteed feature
+call.barrier.factor = 1.30 # Multiplier on strike price for call barrier
+put.barrier.factor = 0.80  # Multiplier on strike price for put barrier
 delta.h = 0.01 # Value of h used for Delta Calculation as a perentage of stock price
 set.seed(1)
 #######################################
@@ -271,7 +272,7 @@ ggplot(df.price, aes(x=date, y=mean.price, group = color, color=color))+ geom_li
 com.fee = 0.01
 original.I = 1000000
 I = original.I*(1-com.fee)
-bond.yield = r
+
 B = exp(-bond.yield*T)*original.I
 print(paste("remaining amount to invest:",I-B))
 
@@ -297,3 +298,4 @@ print(paste("Options return:",(P.call*call.payoff + P.put*put.payoff)/(I-B)*100,
 print(paste("Contract payoff:", contract.payoff))
 print(paste("Contract return:", contract.ret*100,"%"))
 print(paste("Portfolio return:", (end.price/begin.price-1)*100,"%"))
+
