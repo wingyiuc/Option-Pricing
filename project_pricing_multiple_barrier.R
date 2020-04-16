@@ -34,6 +34,7 @@ T <- 1                    # time until expiration (in years)
 m <- T * 252              # number of subintervals
 delta.t <- T / m          # time per subinterval (in years)
 r = 1.950/100             # Risk free rate
+bond.yield = 3.5/100      # Corporate bond yield for principal guaranteed feature
 call.barrier.factor = 1.3 # Multiplier on strike price to calculate call barrier
 put.barrier.factor = 0.7  # Multiplier on strike price to calculate put barrier
 kappa <- 2                # Speed of mean reversion.
@@ -265,7 +266,7 @@ ggplot(df.price, aes(x=date, y=mean.price, group = color, color=color))+ geom_li
 com.fee = 0.01
 original.I = 1000000
 I = original.I*(1-com.fee)
-bond.yield = r
+
 B = exp(-bond.yield*T)*original.I
 print(paste("remaining amount to invest:",I-B))
 
