@@ -1,19 +1,38 @@
 #######################################
-### Code for Basket Barrier In-Options
-
-# How to use: drop the historical price rds files into "data" folder
+### Code for multiple underlyings (basket)
+# 
+# How to use: drop the historical price and backtest rds files into "data/multiple/" folder
+# Note: Please drop rds files for the basket of tickers you wish to price ONLY
 # Adjust parameters in ***User edit area***
-# Run the code and get the basket option price
-# For new data download from HKEX website:
-# Drop the downloaded excel files into "data" folder
-# Run "data preprocessing.R" to get rds files with suitable timeframe 
+# Set your directory in ***User edit area***
+# Run the code and get the basket barrier option price
+# Note: No need to specify file names in this code
+# 
+# Required data input:
+# For pricing: file name ticker + "_pricing.rds"
+# With columns: date, Closed_Price, ret ONLY
+# For backtesting: file name ticker + "_backtest.rds"
+# With columns: date, Closed_Price, ret ONLY
+# 
+# Expected output:
+# For pricing: at-the-money up-and-in call price, at-the-money down-and-in put price
+# With vanilla call and put prices for reference 
+# with confidence intervals for reference
+# For backtesting: graph plot of stock price and barriers
+# With participation calculation, and backtest return on the PGN
+# 
+# For new data:
+# Drop the downloaded excel/csv files into "data" folder
+# Preprocess the data using "data preprocessing.R"
+# Expected outputs: ticker + "_pricing.rds" & ticker + "_backtest.rds"
+# With columns: date, Closed_Price, ret ONLY
+# 
 #######################################
 ### Load packages
 library(data.table)
 library(readxl)
 library(stringr)
 library(ggplot2)
-library(tidyverse)
 library(doParallel)
 library(doRNG)
 registerDoParallel(cores=detectCores())
@@ -22,24 +41,30 @@ registerDoParallel(cores=detectCores())
 ### Directory setup
 # ***User edit area***
 mainDir = "C:/Users/kenneth.DESKTOP-DIPDF8F/Option-Pricing/"
+
 setwd(mainDir)
-dataDir = paste(mainDir , "data/", sep="")
+dataDir = paste(mainDir , "data/multiple/", sep="")
 
 #######################################
 ### Global Variables
 # ***User edit area***
-annual = 252              # Number of trading days in a year
-d = 100000                # Number of simulated trials
-T <- 1                    # time until expiration (in years)
-m <- T * 252              # number of subintervals
-delta.t <- T / m          # time per subinterval (in years)
-r = 1.950/100             # Risk free rate
-bond.yield = 3.5/100      # Corporate bond yield for principal guaranteed feature
-call.barrier.factor = 1.3 # Multiplier on strike price to calculate call barrier
-put.barrier.factor = 0.7  # Multiplier on strike price to calculate put barrier
-kappa <- 2                # Speed of mean reversion.
-xi <- 0.9                 # Vol of vol.
+annual = 252               # Number of trading days in a year
+d = 100000                 # Number of simulated trials
+T <- 1                     # time until expiration (in years)
+m <- T * 252               # number of subintervals
+delta.t <- T / m           # time per subinterval (in years)
+r = 1.950/100              # Risk free rate
+bond.yield = 3.65/100      # Corporate bond yield for principal guaranteed feature
+call.barrier.factor = 1.3  # Multiplier on strike price to calculate call barrier
+put.barrier.factor = 0.75  # Multiplier on strike price to calculate put barrier
+kappa <- 2                 # Speed of mean reversion.
+xi <- 0.9                  # Vol of vol.
+original.I = 1000000       # Principal for the PGN
+com.fee = 0.01             # commision fee
 set.seed(1)
+
+#######################################
+### Pricing options
 
 #######################################
 ### Functions
@@ -103,6 +128,8 @@ get_price = function(out, call=TRUE, barrier=TRUE){
   return(option.price)
 }
 #######################################
+### Main code for pricing
+
 # Get all files from folder
 files = list.files(dataDir,pattern = "_pricing.rds")
 
@@ -190,8 +217,9 @@ system.time({
   }
 })
 end_time <- Sys.time()
-UIC = get_price(out, call=TRUE, barrier = TRUE )
-DIP = get_price(out, call=FALSE, barrier = TRUE )
+
+UIC = get_price(out, call=TRUE, barrier = TRUE ) # Price of Up In Call
+DIP = get_price(out, call=FALSE, barrier = TRUE ) # Price of DOwn In Put
 print(paste("Used time for simulation:",end_time - start_time,"mins"))
 print(paste("Basket Call Price Estimate:",get_price(out, call=TRUE, barrier = FALSE )))
 print(paste("Basket Put Price Estimate:",get_price(out, call=FALSE, barrier = FALSE )))
@@ -203,19 +231,6 @@ print(paste("Basket Down-and-In Put Price Estimate:",get_price(out, call=FALSE, 
 
 #######################################
 ### Functions
-preprocess.df = function(df){
-  
-  # Input: dataframe from rds files with Time and Closed_Price
-  # Output: datatable with date, Closed_Price and ret (return)
-  
-  setDT(df)
-  names(df) = str_replace_all(names(df)," ","_")
-  df = df[,list(date=Time,Closed_Price=as.numeric(Closed_Price)),]
-  df = df[,ret:= log(Closed_Price)-log(shift(Closed_Price,type="lag",n=1)),]
-  df = na.omit(df)
-  setkey(df,"date")
-  return(df)
-}
 
 join_price_table = function(df){
   
@@ -245,7 +260,8 @@ num.files =length(files)
 df.pricing = lapply(paste(dataDir,files,sep=""),readRDS)
 df.pricing = lapply(df.pricing,setDT)
 
-# Graphing basket one-year historical return
+### Graphing basket one-year historical return
+
 if (num.files > 1) {
   df.price = join_price_table(df.pricing)
 }else{
@@ -261,10 +277,9 @@ df.price[, color := ifelse(date<contract.begin.date,'b','r')] # Optional
 ggplot(df.price, aes(x=date, y=mean.price, group = color, color=color))+ geom_line() +
   geom_hline(yintercept=L.put,color='red') + geom_hline(yintercept=L.call)
 
-###################################################
+
 ### Calculating participation rate
-com.fee = 0.01
-original.I = 1000000
+
 I = original.I*(1-com.fee)
 
 B = exp(-bond.yield*T)*original.I
@@ -278,11 +293,11 @@ P.call = P.rate.call * I
 P.put = P.rate.put * I
 # print(paste("participation is: ", P))
 
-###################################################
+
 ### Backtested payoff
+
 begin.price = K
 end.price = last(df.price$mean.price)
-# Assuming options active
 call.payoff = ifelse(call.active,max(end.price - begin.price,0),0)
 put.payoff = ifelse(put.active,max(begin.price - end.price,0),0)
 contract.payoff = P.call*call.payoff + P.put*put.payoff + original.I
