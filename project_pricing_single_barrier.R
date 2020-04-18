@@ -1,38 +1,63 @@
 #######################################
-### Code for single Barrier In-Options
-
-# How to use: drop the historical price rds files into "Price_data" folder
+### Code for single underlying
+# 
+# How to use: drop the historical price and backtest rds files into "data/single/" folder
+# Note: Please drop rds files for ONE ticker ONLY
 # Adjust parameters in ***User edit area***
-# Run the code and get the single option price
-# For new data download from HKEX website:
-# Drop the downloaded excel files into "Price_data" folder
-# Run "data preprocessing.R" to get rds files with suitable timeframe 
+# Set your directory in ***User edit area***
+# Run the code and get the single underlying barrier option price
+# Note: No need to specify file name in this code
+# 
+# Required data input:
+# For pricing: file name ticker + "_pricing.rds"
+# With columns: date, Closed_Price, ret ONLY
+# For backtesting: file name ticker + "_backtest.rds"
+# With columns: date, Closed_Price, ret ONLY
+# 
+# Expected output:
+## For pricing: 
+# at-the-money up-and-in call price, at-the-money down-and-in put price
+# With vanilla call and put prices for reference 
+# with confidence intervals for reference
+# with delta for reference
+## For backtesting: 
+# graph plot of stock price and barriers
+# With participation calculation, and backtest return on the PGN
+# 
+# For new data:
+# Drop the downloaded excel/csv files into "data" folder
+# Preprocess the data using "data preprocessing.R"
+# Expected outputs: ticker + "_pricing.rds" & ticker + "_backtest.rds"
+# With columns: date, Closed_Price, ret ONLY
+# 
 #######################################
 ### Load packages
 library(data.table)
 library(readxl)
 library(stringr)
 library(ggplot2)
-library(tidyverse)
+
 #######################################
 ### Directory setup
 # ***User edit area***
 mainDir = "C:/Users/kenneth.DESKTOP-DIPDF8F/Option-Pricing/"
 setwd(mainDir)
-dataDir = paste(mainDir , "data/", sep="")
+dataDir = paste(mainDir , "data/single/", sep="")
 
 #######################################
 # Global Variables
-
-annual = 252
-d = 1*10^7
-T <- 1                   # time until expiration (in years)
-r = 1.950/100
-bond.yield = 3.6/100     # Corporate bond yield for principal guaranteed feature
-call.barrier.factor = 1.30 # Multiplier on strike price for call barrier
-put.barrier.factor = 0.80  # Multiplier on strike price for put barrier
-delta.h = 0.01 # Value of h used for Delta Calculation as a perentage of stock price
-set.seed(1)
+# ***User edit area***
+annual = 252                 # Number of trading days in a year
+d = 1*10^7                   # Number of simulated trials
+T <- 1                       # time until expiration (in years)
+r = 1.950/100                # Risk free rate
+bond.yield = 3.65/100        # Corporate bond yield for principal guaranteed feature
+call.barrier.factor = 1.30   # Multiplier on strike price for call barrier
+put.barrier.factor = 0.75    # Multiplier on strike price for put barrier
+delta.h = 0.01               # Value of h used for Delta Calculation as a perentage of stock price
+com.fee = 0.01               # commision fee
+original.I = 1000000         # Principal for the PGN
+set.seed(1)               
 #######################################
 # Functions
 
@@ -216,6 +241,7 @@ print(paste("Down-and-In Put Price Estimate:",DIP))
 
 print(paste("Delta of Vanilla Straddle: ",delta.UIC.call+delta.DIP.put))
 print(paste("Delta of Barrier Option Straddle: ",delta.vanilla.call+delta.vanilla.put))
+
 #######################################
 ### Backtesting Performance
 
@@ -269,8 +295,7 @@ ggplot(df.price, aes(x=date, y=mean.price, group = color, color=color))+ geom_li
 
 ###################################################
 ### Calculating participation rate
-com.fee = 0.01
-original.I = 1000000
+
 I = original.I*(1-com.fee)
 
 B = exp(-bond.yield*T)*original.I
