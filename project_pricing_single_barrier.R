@@ -36,6 +36,7 @@ library(data.table)
 library(readxl)
 library(stringr)
 library(ggplot2)
+library(gridExtra)
 
 #######################################
 ### Directory setup
@@ -324,3 +325,25 @@ print(paste("Contract payoff:", contract.payoff))
 print(paste("Contract return:", contract.ret*100,"%"))
 print(paste("Portfolio return:", (end.price/begin.price-1)*100,"%"))
 
+###################################################
+### Producing better visualization
+
+# Give a name to the ggplot object that has the return plot
+plot_option <- ggplot(df.price, aes(x=date, y=mean.price, group = color, color=color))+ geom_line() +
+  geom_hline(yintercept=L.put,color='red') + geom_hline(yintercept=L.call) + theme_minimal() + ggtitle("Mean Price over time")+labs(x = "Date", y = "Mean Price")
+
+# Create a dataframe for the returns (Contract, Option and Portfolio)
+item <- c("Contract","Portfolio")
+item_return <- c(contract.ret*100,(end.price/begin.price-1)*100)
+df_plot <- data.frame(item,item_return)
+
+# verify that the dataframe is correct
+df_plot
+
+# Create a barplot of the returns
+plot_bar <- ggplot(data = df_plot, aes(x= item, y = item_return, fill = item)) + geom_bar(stat = "identity") + theme_minimal()+
+  ggtitle("Bar Plot of Returns")+labs(x = "Item", y = "Return")
+
+# Arrange the plot_option and plot_bar into a grid
+grid_combined <- grid.arrange(plot_option,plot_bar, nrow = 1,ncol = 2)
+grid_combined
