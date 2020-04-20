@@ -35,6 +35,7 @@ library(stringr)
 library(ggplot2)
 library(doParallel)
 library(doRNG)
+library(gridExtra)
 registerDoParallel(cores=detectCores())
 
 #######################################
@@ -302,6 +303,7 @@ call.payoff = ifelse(call.active,max(end.price - begin.price,0),0)
 put.payoff = ifelse(put.active,max(begin.price - end.price,0),0)
 contract.payoff = P.call*call.payoff + P.put*put.payoff + original.I
 contract.ret = contract.payoff/original.I-1
+print(paste("Initial investment",B+P.call*UIC+P.put*DIP))
 print(paste("Options payoff:",P.call*call.payoff + P.put*put.payoff))
 print(paste("Options return:",(P.call*call.payoff + P.put*put.payoff)/(I-B)*100,"%"))
 print(paste("Contract payoff:", contract.payoff))
