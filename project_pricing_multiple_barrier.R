@@ -274,7 +274,7 @@ df.price$date = as.Date(df.price$date)
 contract.begin.date = last(df[[1]]$date)
 call.active = any(df.price[date>contract.begin.date,mean.price] >L.call)
 put.active = any(df.price[date>contract.begin.date,mean.price] < L.put)
-df.price[, color := ifelse(date<contract.begin.date,'b','r')] # Optional
+df.price[, color := ifelse(date<contract.begin.date,'Historical period','Contract period')] # Optional
 ggplot(df.price, aes(x=date, y=mean.price, group = color, color=color))+ geom_line() +
   geom_hline(yintercept=L.put,color='red') + geom_hline(yintercept=L.call)
 
