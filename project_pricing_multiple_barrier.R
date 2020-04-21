@@ -33,10 +33,9 @@ library(data.table)
 library(readxl)
 library(stringr)
 library(ggplot2)
+library(future.apply)
 library(doParallel)
-library(doRNG)
 library(gridExtra)
-registerDoParallel(cores=detectCores())
 
 #######################################
 ### Directory setup
@@ -56,8 +55,8 @@ m <- T * 252               # number of subintervals
 delta.t <- T / m           # time per subinterval (in years)
 r = 1.950/100              # Risk free rate
 bond.yield = 3.6/100       # Corporate bond yield for principal guaranteed feature
-call.barrier.factor = 1.3  # Multiplier on strike price to calculate call barrier
-put.barrier.factor = 0.75  # Multiplier on strike price to calculate put barrier
+call.barrier.factor = 1.2  # Multiplier on strike price to calculate call barrier
+put.barrier.factor = 0.9   # Multiplier on strike price to calculate put barrier
 kappa <- 2                 # Speed of mean reversion.
 xi <- 0.9                  # Vol of vol.
 original.I = 1000000       # Principal for the PGN
@@ -75,6 +74,15 @@ join_ret_table = function(df){
   # Input: list of dataframes (3D) of stock data (date, Closed_Price, ret)
   # Output: Join return columns into one 2D dataframe
   
+  if (num.files == 1) {
+    df.ret = data.table(cbind(df[[1]]$date,df[[1]]$ret))
+    colnames(df.ret) = c("date","ret.1")
+    setkey(df.ret,date)
+    df.ret = df.ret[,!"date"]
+    df.ret = sapply(df.ret,as.numeric)
+    return(df.ret)
+  }
+  
   df.ret = data.table(cbind(df[[1]]$date,df[[1]]$ret))
   colnames(df.ret) = c("date","ret.1")
   for (i in 2:num.files) {
@@ -86,6 +94,75 @@ join_ret_table = function(df){
   df.ret = df.ret[,!"date"]
   df.ret = sapply(df.ret,as.numeric)
   return(df.ret)
+}
+
+price_simulation = function(a){
+  
+  # Input: None (uses global variables)
+  # Required global variables: "num.files","m","delta.t",
+  # "chol.decomp","r","kappa","xi",
+  # "theta", "L.put","L.call","K", "last.price"
+  # Does: Simulate one price path for basket option
+  # Output: vanilla & barrier call & put price from 1 trial
+  
+  # Initialize vol and stock price.
+  nu <- s <- matrix(0, nrow=m+1,ncol=num.files) 
+  nu[1,] <- theta          # First vol is current vol
+  s[1, ] <- last.price     # First price is current price
+  
+  
+  # Initialize state of options
+  # The options are inactive until barriers hit
+  if (L.put < mean(last.price)){
+    down_in.put.active = FALSE
+  }else{
+    down_in.put.active = TRUE
+  }
+  if (L.call < mean(last.price)){
+    up_in.call.active = TRUE
+  }else{
+    up_in.call.active = FALSE
+  }
+  if (num.files > 1) {
+    stdNormal = matrix(sqrt(delta.t) * rnorm(num.files*m),nrow = num.files)
+    corrNormal <- t(chol.decomp) %*% stdNormal # C'Z
+    dW1 <- t(corrNormal) # simulated correlated returns
+  }else{
+    dW1 = matrix(sqrt(delta.t) * rnorm(num.files*m),nrow=m,ncol = num.files)
+  }
+  
+  dW2 = matrix(sqrt(delta.t) * rnorm(num.files*m),nrow=m,ncol = num.files)
+  for (i in 1:m) { # cycle through time
+    for (k in 1:num.files) { # cycle through underlyings
+      ds <- r*s[i,k]*delta.t + sqrt(nu[i,k])*s[i,k]*dW1[i,k]
+      dnu <- kappa*(theta[k]-nu[i,k])*delta.t + xi*sqrt(nu[i,k])*dW2[i,k]
+      s[i + 1,k] <- s[i,k] + ds
+      nu[i + 1,k] <- max(nu[i,k] + dnu, 0) # Ensure non-negative 'nu'.
+    }
+    if(mean(s[i+1,]) < L.put){
+      if(down_in.put.active == FALSE){
+        # Activate if barrier crossed
+        down_in.put.active = TRUE
+      }
+    }
+    if(mean(s[i+1,]) > L.call){
+      if(up_in.call.active == FALSE){
+        # Activate if barrier crossed
+        up_in.call.active = TRUE
+      }
+    }
+  }
+  price1 <- price2 <- 0
+  if(up_in.call.active == TRUE){
+    price1 = exp(-r * T) * max(mean(s[m+1,]) - K, 0)
+  }
+  if(down_in.put.active == TRUE){
+    price2 = exp(-r * T) * max(K-mean(s[m+1,]), 0)
+  }
+  price3 = exp(-r * T) * max(mean(s[m+1,]) - K, 0)
+  price4 = exp(-r * T) * max(K - mean(s[m+1,]), 0)
+  
+  return(list(price1,price2,price3,price4))
 }
 
 get_price = function(out, call=TRUE, barrier=TRUE){
@@ -150,74 +227,30 @@ K <- mean(last.price)                                             # strike price
 df.ret = join_ret_table(df)
 
 # Covariance matrix
-cov.matrix = cov(df.ret)*annual # Annualized volatility 
+cov.matrix = cov(df.ret)*annual # Annualized volatility
 # Cholesky decomposition
 chol.decomp = chol(cov.matrix)
 
-# Initialize vol and stock price.
-nu <- s <- matrix(0, nrow=m+1,ncol=num.files) 
-nu[1,] <- theta          # First vol is current vol
-s[1, ] <- last.price     # First price is current price
 
 # Get barriers 
 L.call = call.barrier.factor*K
 L.put = put.barrier.factor*K
 
-# Initialize state of options
-# The options are inactive until barriers hit
-if (L.put < mean(last.price)){
-  down_in.put.active = FALSE
-}else{
-  down_in.put.active = TRUE
-}
-if (L.call < mean(last.price)){
-  up_in.call.active = TRUE
-}else{
-  up_in.call.active = FALSE
-}
+##################################
+# For parallel Sapply function
 
-### Small Time Step Monete Carlo Simulation
-# Volatility: Heston Model
+cl = makeCluster(detectCores())
+clusterExport(cl,c("price_simulation",
+                   "num.files","m","delta.t",
+                   "chol.decomp","r","kappa","xi",
+                   "theta", "L.put","L.call","K", "last.price"))
+
 start_time <- Sys.time()
-system.time({
-  out <- foreach(j=1:d, .combine = "rbind") %dorng% {
-    stdNormal <- matrix(sqrt(delta.t) * rnorm(num.files*m),nrow = num.files)
-    corrNormal <- t(chol.decomp) %*% stdNormal # C'Z
-    dW1 <- t(corrNormal) # simulated correlated returns
-    dW2 <- matrix(sqrt(delta.t) * rnorm(num.files*m),nrow=m,ncol = num.files)
-    for (i in 1:m) { # cycle through time
-      for (k in 1:num.files) { # cycle through underlyings
-        ds <- r*s[i,k]*delta.t + sqrt(nu[i,k])*s[i,k]*dW1[i,k]
-        dnu <- kappa*(theta[k]-nu[i,k])*delta.t + xi*sqrt(nu[i,k])*dW2[i,k]
-        s[i + 1,k] <- s[i,k] + ds
-        nu[i + 1,k] <- max(nu[i,k] + dnu, 0) # Ensure non-negative 'nu'.
-      }
-      if(mean(s[i+1,]) < L.put){
-        if(down_in.put.active == FALSE){
-          # Activate if barrier crossed
-          down_in.put.active = TRUE
-        }
-      }
-      if(mean(s[i+1,]) > L.call){
-        if(up_in.call.active == FALSE){
-          # Activate if barrier crossed
-          up_in.call.active = TRUE
-        }
-      }
-    }
-    price1 <- price2 <- 0
-    if(up_in.call.active == TRUE){
-      price1 = exp(-r * T) * max(mean(s[m+1,]) - K, 0)
-    }
-    if(down_in.put.active == TRUE){
-      price2 = exp(-r * T) * max(K-mean(s[m+1,]), 0)
-    }
-    price3 = exp(-r * T) * max(mean(s[m+1,]) - K, 0)
-    price4 = exp(-r * T) * max(K - mean(s[m+1,]), 0)
-    list(price1,price2,price3,price4)
-  }
-})
+out = parSapply(cl=cl,1:d,FUN=price_simulation)
+out = t(out)
 end_time <- Sys.time()
+end_time - start_time
+stopCluster(cl)
 
 UIC = get_price(out, call=TRUE, barrier = TRUE ) # Price of Up In Call
 DIP = get_price(out, call=FALSE, barrier = TRUE ) # Price of DOwn In Put
@@ -304,6 +337,8 @@ put.payoff = ifelse(put.active,max(begin.price - end.price,0),0)
 contract.payoff = P.call*call.payoff + P.put*put.payoff + original.I
 contract.ret = contract.payoff/original.I-1
 print(paste("Initial investment",B+P.call*UIC+P.put*DIP))
+print(paste("Call participation",P.call))
+print(paste("Put participation",P.put))
 print(paste("Options payoff:",P.call*call.payoff + P.put*put.payoff))
 print(paste("Options return:",(P.call*call.payoff + P.put*put.payoff)/(I-B)*100,"%"))
 print(paste("Contract payoff:", contract.payoff))
