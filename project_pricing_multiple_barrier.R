@@ -154,33 +154,38 @@ cov.matrix = cov(df.ret)*annual # Annualized volatility
 # Cholesky decomposition
 chol.decomp = chol(cov.matrix)
 
-# Initialize vol and stock price.
-nu <- s <- matrix(0, nrow=m+1,ncol=num.files) 
-nu[1,] <- theta          # First vol is current vol
-s[1, ] <- last.price     # First price is current price
 
 # Get barriers 
 L.call = call.barrier.factor*K
 L.put = put.barrier.factor*K
 
-# Initialize state of options
-# The options are inactive until barriers hit
-if (L.put < mean(last.price)){
-  down_in.put.active = FALSE
-}else{
-  down_in.put.active = TRUE
-}
-if (L.call < mean(last.price)){
-  up_in.call.active = TRUE
-}else{
-  up_in.call.active = FALSE
-}
+
 
 ### Small Time Step Monete Carlo Simulation
 # Volatility: Heston Model
 start_time <- Sys.time()
 system.time({
   out <- foreach(j=1:d, .combine = "rbind") %dorng% {
+    
+    # Initialize vol and stock price.
+    nu <- s <- matrix(0, nrow=m+1,ncol=num.files) 
+    nu[1,] <- theta          # First vol is current vol
+    s[1, ] <- last.price     # First price is current price
+    
+    
+    # Initialize state of options
+    # The options are inactive until barriers hit
+    if (L.put < mean(last.price)){
+      down_in.put.active = FALSE
+    }else{
+      down_in.put.active = TRUE
+    }
+    if (L.call < mean(last.price)){
+      up_in.call.active = TRUE
+    }else{
+      up_in.call.active = FALSE
+    }
+    
     stdNormal <- matrix(sqrt(delta.t) * rnorm(num.files*m),nrow = num.files)
     corrNormal <- t(chol.decomp) %*% stdNormal # C'Z
     dW1 <- t(corrNormal) # simulated correlated returns
