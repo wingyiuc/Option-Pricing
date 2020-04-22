@@ -63,7 +63,7 @@ for (file in files) {
   filename = strsplit(file,".csv")[1]
   setDT(df)
   df = df[,.(Time=format(as.Date(Date),"%Y/%m/%d"), Closed_Price=Adj.Close)]
-  df = df[Time > "2017/04/01" & Time<"2018/04/01",]
+  df = df[Time > "2015/12/31" & Time<"2016/12/31",]
   df = preprocess.df(df)
   saveRDS(df, paste(dataDir,filename,"_pricing.rds",sep=""))
 }
@@ -76,7 +76,7 @@ for (file in files) {
   filename = strsplit(file,".csv")[1]
   setDT(df)
   df = df[,.(Time=format(as.Date(Date),"%Y/%m/%d"), Closed_Price=Adj.Close)]
-  df = df[Time > "2017/04/01" & Time<"2019/04/01",]
+  df = df[Time > "2015/12/31" & Time<"2017/12/31",]
   df = preprocess.df(df)
   saveRDS(df, paste(dataDir,filename,"_backtest.rds",sep=""))
 }
