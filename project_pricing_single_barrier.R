@@ -54,8 +54,8 @@ T <- 1                       # time until expiration (in years)
 r = 1.950/100                # Risk free rate
 bond.yield = 3.65/100        # Corporate bond yield for principal guaranteed feature
 vol.factor = 1.1             # Factor to adjust volatility estimation based on annualized vol
-call.barrier.factor = 1.30   # Multiplier on strike price for call barrier
-put.barrier.factor = 0.75    # Multiplier on strike price for put barrier
+call.barrier.factor = 1.20   # Multiplier on strike price for call barrier
+put.barrier.factor = 0.9     # Multiplier on strike price for put barrier
 delta.h = 0.01               # Value of h used for Delta Calculation as a perentage of stock price
 com.fee = 0.01               # commision fee
 original.I = 1000000         # Principal for the PGN
@@ -71,7 +71,7 @@ get_payoff_table = function(df,s0, K, L, sigma, r, T, type_basic,type_adjust){
   
   df[, r.t := (r-(1/2)*sigma^2)*T+sigma*dW]
   df[, s.t := s0*exp(r.t)]
-  df[, adj.s.t := L^2/s.t]
+  df[, adj.s.t := (L^2/s0)*exp(r.t)]
   df[, s.t.barrier := phi(s.t, L, type=type_basic)] 
   df[, adj.s.t.barrier := phi(adj.s.t, L, type=type_adjust)]
   df[, payoff.call := exp(-r*T)*pmax(s.t-K,0)]
@@ -309,6 +309,8 @@ put.payoff = ifelse(put.active,max(begin.price - end.price,0),0)
 contract.payoff = P.call*call.payoff + P.put*put.payoff + original.I
 contract.ret = contract.payoff/original.I-1
 print(paste("Initial investment",B+P.call*UIC+P.put*DIP))
+print(paste("Call participation",P.call))
+print(paste("Put participation",P.put))
 print(paste("Options payoff:",P.call*call.payoff + P.put*put.payoff))
 print(paste("Options return:",(P.call*call.payoff + P.put*put.payoff)/(I-B)*100,"%"))
 print(paste("Contract payoff:", contract.payoff))
