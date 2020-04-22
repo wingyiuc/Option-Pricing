@@ -114,7 +114,7 @@ price_simulation = function(a){
 }
 
 #######################################
-### Main code for pricing
+### Price path simulation graph
 
 # Get all files from folder
 files = list.files(dataDir,pattern = "_pricing.rds")
@@ -205,6 +205,7 @@ ggplot(df.graph, aes(x=rep(1:nrow(df.graph))))+
   labs(x = "Time", y = "Price")
 
 #################################################
+### Simple payoff graph
 # 
 # payoff = function(s,K){
 #   # straddle
@@ -249,7 +250,7 @@ ggplot(df.graph, aes(x=rep(1:nrow(df.graph))))+
 #   theme_minimal()
 
 ##################################################
-
+### Payoff * Participation graph
 
 get_payoff_table = function(df,s0, K, L, sigma, r, T, type_basic,type_adjust){
   
@@ -259,7 +260,9 @@ get_payoff_table = function(df,s0, K, L, sigma, r, T, type_basic,type_adjust){
   
   df[, r.t := (r-(1/2)*sigma^2)*T+sigma*dW]
   df[, s.t := s0*exp(r.t)]
-  df[, adj.s.t := L^2/s.t]
+  df[, dW2 := sqrt(T)*rnorm(d)]
+  df[, r.t2 := (r-(1/2)*sigma^2)*T+sigma*dW2]
+  df[, adj.s.t := (L^2/s0)*exp(r.t2)]
   df[, s.t.barrier := phi(s.t, L, type=type_basic)] 
   df[, adj.s.t.barrier := phi(adj.s.t, L, type=type_adjust)]
   df[, payoff.call := exp(-r*T)*pmax(s.t-K,0)]
@@ -301,11 +304,11 @@ get_price = function(df, call=TRUE, vanilla=TRUE ,basic=TRUE, print.CI = FALSE){
     }
     else{
       if (basic==TRUE) {
-        std.err = var(df$payoff.call.barrier)
+        std.err = var(df$payoff.call.barrier)/sqrt(d)
         option.price = round(mean(df$payoff.call.barrier), 4)
       }
       else{
-        std.err = var(df$payoff.call.barrier.adj)
+        std.err = var(df$payoff.call.barrier.adj)/sqrt(d)
         option.price = round(mean(df$payoff.call.barrier.adj), 4)
       }
     }
@@ -396,6 +399,7 @@ payoff3 = function(s,K,call.premium, put.premium){
 
 sigma = 0.1
 r = 1.95/100
+d = 100000                 # Number of simulated trials
 T = 1
 s <- seq(40, 65, by = 1)
 s0 = 50
@@ -409,6 +413,7 @@ I = 1000
 vanilla.call.premium = price.UIC(s0, K, L=0, sigma, r, T)
 vanilla.call.premium
 vanilla.put.premium = price.DIP(s0, K, L = .Machine$integer.max, sigma, r, T)
+vanilla.put.premium
 vanilla.call.premium + vanilla.put.premium
 P.vanilla = I / (vanilla.call.premium + vanilla.put.premium)
 P.vanilla
@@ -417,6 +422,7 @@ f.straddle.vanilla = lapply(s,payoff.vanilla,K,vanilla.call.premium,vanilla.put.
 barrier.call.premium = price.UIC(s0, K, L.call, sigma, r, T)
 barrier.call.premium
 barrier.put.premium = price.DIP(s0, K, L.put, sigma, r, T)
+barrier.put.premium
 barrier.call.premium + barrier.put.premium
 P.barrier = I / (barrier.call.premium + barrier.put.premium)
 P.barrier
@@ -438,15 +444,27 @@ cols = colnames(payoff.diagram)
 # payoff.diagram[ , (cols) := lapply(.SD, "*", 10), .SDcols = cols]
 payoff.diagram[, straddle_vanilla_payoff := straddle_vanilla * P.vanilla]
 payoff.diagram[, straddle_barrier_payoff := straddle_barrier_active * P.barrier]
+payoff.diagram[, straddle_barrier_payoff_inactive := straddle_barrier_inactive * P.barrier]
 payoff.diagram[, strangle_payoff := strangle * P.strangle]
+up.equal = payoff.diagram[strangle_payoff <= straddle_barrier_payoff,s]%>%last
+up.equal/K
+down.equal = payoff.diagram[strangle_payoff <= straddle_barrier_payoff,s][1]
+down.equal/K
 
 ggplot(payoff.diagram, aes(x=s))+
   geom_line(aes(y=straddle_vanilla_payoff,color="Vanilla straddle"))+
+  geom_line(aes(y=straddle_barrier_payoff_inactive,color="barrier straddle (inactive)"))+
   geom_line(aes(y=straddle_barrier_payoff,color="barrier straddle (active)"))+
   geom_line(aes(y=strangle_payoff,color="strangle"))+
   geom_hline(yintercept=0) + 
-  scale_color_manual(name="Groups",values=c("blue", "red","green","black"))+
+  scale_color_manual(name="Groups",values=c("blue","grey","red","green","black"))+
   ggtitle("Payoff * Participation")+
   labs(x = "Price", y = "Payoff")+
+  geom_point(x = K, y = 0)+
+  annotate("text", x = K, y = (-500), label = "K")+
+  geom_point(x = L.call, y = 0)+
+  annotate("text", x = L.call, y = (-500), label = "L2 = 1.2K")+
+  geom_point(x = L.put, y = 0)+
+  annotate("text", x = L.put, y = (-500), label = "L1 = 0.9K")+
   theme_minimal()
 
