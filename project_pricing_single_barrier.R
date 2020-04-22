@@ -71,7 +71,9 @@ get_payoff_table = function(df,s0, K, L, sigma, r, T, type_basic,type_adjust){
   
   df[, r.t := (r-(1/2)*sigma^2)*T+sigma*dW]
   df[, s.t := s0*exp(r.t)]
-  df[, adj.s.t := (L^2/s0)*exp(r.t)]
+  df[, dW2 := sqrt(T)*rnorm(d)]
+  df[, r.t2 := (r-(1/2)*sigma^2)*T+sigma*dW2]
+  df[, adj.s.t := (L^2/s0)*exp(r.t2)]
   df[, s.t.barrier := phi(s.t, L, type=type_basic)] 
   df[, adj.s.t.barrier := phi(adj.s.t, L, type=type_adjust)]
   df[, payoff.call := exp(-r*T)*pmax(s.t-K,0)]
