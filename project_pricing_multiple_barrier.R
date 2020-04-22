@@ -349,8 +349,12 @@ print(paste("Portfolio return:", (end.price/begin.price-1)*100,"%"))
 ### Producing better visualization
 
 # Give a name to the ggplot object that has the return plot
-plot_option <- ggplot(df.price, aes(x=date, y=mean.price, group = color, color=color))+ geom_line() +
-  geom_hline(yintercept=L.put,color='red') + geom_hline(yintercept=L.call) + theme_minimal() + ggtitle("Mean Price over time")+labs(x = "Date", y = "Mean Price")
+plot_option <- ggplot(df.price, aes(x=date, y=mean.price, group = color, color=color))+ geom_line() + scale_colour_manual(values = c('red4',"grey42")) +
+  geom_hline(yintercept = L.put,color = 'darkred', size = 1) + geom_hline(yintercept = L.call,color = "darkgreen", size = 1) + theme_minimal() + ggtitle("Mean Price Over Time") + labs(x = "Date", y = "Mean Price") + 
+  annotate("text", x = df.price$date[37], y = L.call , label = "Call Barrier", vjust= -0.5) + annotate("text", x = nth(df.price$date,-37), y = L.put , label = "Put Barrier", vjust= -0.5) +
+  labs(color='Period') +theme_minimal(base_size = 22)
+plot_option
+
 
 # Create a dataframe for the returns (Contract, Option and Portfolio)
 item <- c("Contract","Portfolio")
@@ -361,10 +365,12 @@ df_plot <- data.frame(item,item_return)
 df_plot
 
 # Create a barplot of the returns
-plot_bar <- ggplot(data = df_plot, aes(x= item, y = item_return, fill = item)) + geom_bar(stat = "identity") + theme_minimal()+
-  ggtitle("Bar Plot of Returns")+labs(x = "Item", y = "Return")
+plot_bar <- ggplot(data = df_plot, aes(x= item, y = item_return, fill = item)) + geom_bar(stat = "identity",alpha = 7/10) + theme_minimal(base_size = 22) +
+  ggtitle("Bar Plot of Returns")+labs(x = "Item", y = "Return(%)")+scale_fill_manual(values = c("#26428b", "#301934")) +
+  annotate("text", x = item, y = item_return , label = (round(item_return,2)), vjust= -0.5)+
+  theme_minimal(base_size = 22)
+plot_bar
 
 # Arrange the plot_option and plot_bar into a grid
 grid_combined <- grid.arrange(plot_option,plot_bar, nrow = 1,ncol = 2)
-grid_combined
 
