@@ -457,7 +457,7 @@ ggplot(payoff.diagram, aes(x=s))+
   geom_line(aes(y=straddle_barrier_payoff,color="barrier straddle (active)"))+
   geom_line(aes(y=strangle_payoff,color="strangle"))+
   geom_hline(yintercept=0) + 
-  scale_color_manual(name="Groups",values=c("blue","grey","red","green","black"))+
+  scale_color_manual(name="Option types",values=c("red","grey","steelblue","springgreen4","black"))+
   ggtitle("Payoff * Participation")+
   labs(x = "Price", y = "Payoff")+
   geom_point(x = K, y = 0)+
@@ -466,5 +466,31 @@ ggplot(payoff.diagram, aes(x=s))+
   annotate("text", x = L.call, y = (-500), label = "L2 = 1.2K")+
   geom_point(x = L.put, y = 0)+
   annotate("text", x = L.put, y = (-500), label = "L1 = 0.9K")+
-  theme_minimal()
+  theme_minimal(base_size = 22)+
+  theme(
+    legend.position = c(.95, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6, 6, 6, 6)
+  )
 
+#######################################
+df = data.frame(case=c("Worst","Potential"),
+                return=c(0,6000))
+ggplot(data=df,aes(x=case,y=return))+
+  geom_bar(stat="identity",color="steelblue",fill="steelblue")+
+  theme_minimal()+
+  theme_grey(base_size = 22)
+#######################################
+df = data.frame(cbind(c(10,50,100),c(100,50,10)))
+setDT(df)
+df %>% head
+colnames(df) = c("Price_range_covered","Participation")
+df%>% head
+ggplot(df,aes(Price_range_covered,Participation))+
+  geom_point(size=100,color="steelblue",alpha=0.5)+
+  annotate("text", x = 15, y = 92, label = "Strangle",size=10)+
+  annotate("text", x = 50, y = 45, label = "Barrier Straddle",size=10)+
+  annotate("text", x = 83, y = 15, label = "Vanilla Straddle",size=10)+
+  theme(axis.text = element_text(size=12,face="bold"))+
+  theme_grey(base_size = 22)
