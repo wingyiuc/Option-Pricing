@@ -5,7 +5,11 @@ This project contains the code for Volatility Protected PGN (VOLPROTEGN) product
 The following instructions will get you a replication of the project results.
 
 ### Prerequisites
+<<<<<<< HEAD
 Required R packages are: `data.table`, `readxl`, `stringr`, `ggplot2`, `doParallel`, `future.apply`,`dplyr`,`gridExtra`. 
+=======
+Required R packages are: `data.table`, `readxl`, `stringr`, `ggplot2`, `doParallel`, `future.apply`,`dplyr`,`extraGrid`. 
+>>>>>>> 66f90b06a0a2f5f69053853f3a5eec4d2c8dddfb
 
 ### Single underlying barrier options prices and backtesting
 #### Required data input
