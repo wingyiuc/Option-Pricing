@@ -5,7 +5,7 @@ This project contains the code for Volatility Protected PGN (VOLPROTEGN) product
 The following instructions will get you a replication of the project results.
 
 ### Prerequisites
-Required R packages are: `data.table`, `readxl`, `stringr`, `ggplot2`, `doParallel`, `future.apply`. 
+Required R packages are: `data.table`, `readxl`, `stringr`, `ggplot2`, `doParallel`, `future.apply`,`dplyr`,`gridExtra`. 
 
 ### Single underlying barrier options prices and backtesting
 #### Required data input
@@ -44,6 +44,7 @@ Required R packages are: `data.table`, `readxl`, `stringr`, `ggplot2`, `doParall
 #### Pricing methods & Computation
 - Small-time-steps Monte Carlo Simulation with Heston Model for volatility estimation
 - Parallel processing (in `parSapply`) to reduce computation time
+- Expected runtime: 3.31 mins on Intel(R) Core(TM) i5-3570 CPU; 6.27 mins on Core I5 4210U dual core laptop processor
 
 ## Customizing results
 ### Changing underlyings
